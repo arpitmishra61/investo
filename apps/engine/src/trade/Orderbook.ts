@@ -1,3 +1,4 @@
+import { VectorAlgorithms } from "redis";
 import { BASE_CURRENCY } from "./Engine";
 
 export interface Order {
@@ -43,12 +44,11 @@ export class Orderbook {
     while (
         i < this.bids.length &&
         (
-            this.bids[i].price > order.price ||
+            this.bids[i].price < order.price ||
             (this.bids[i].price === order.price &&
              this.bids[i].timeStamp <= order.timeStamp)
         )
     ) {
-        console.log(this.bids[i].price , order.price)
         i++;
     }
     this.bids.splice(i, 0, order);
@@ -58,7 +58,7 @@ export class Orderbook {
     while (
         i < this.asks.length &&
         (
-            this.asks[i].price > order.price ||
+            this.asks[i].price < order.price ||
             (this.asks[i].price === order.price &&
              this.asks[i].timeStamp <= order.timeStamp)
         )
@@ -66,7 +66,6 @@ export class Orderbook {
         i++;
     }
         this.asks.splice(i, 0, order);
-        console.log("this.asks", this.asks,order)
 }
 
     getSnapshot() {
@@ -121,13 +120,12 @@ export class Orderbook {
     matchBid(order: Order): {fills: Fill[], executedQty: number} {
         const fills: Fill[] = [];
         let executedQty = 0;
-
+console.log("here is the aSK", this.asks)
         for (let i = 0; i < this.asks.length; i++) {
             if (this.asks[i].price <= order.price && executedQty < order.quantity) {
                 const filledQty = Math.min((order.quantity - executedQty), this.asks[i].quantity);
                 executedQty += filledQty;
                 this.asks[i].filled += filledQty;
-                order.quantity-=filledQty
                 fills.push({
                     price: this.asks[i].price.toString(),
                     qty: filledQty,
@@ -139,7 +137,9 @@ export class Orderbook {
             }
         }
         for (let i = 0; i < this.asks.length; i++) {
+             
             if (this.asks[i].filled === this.asks[i].quantity) {
+                
                 this.asks.splice(i, 1);
                 i--;
             }
@@ -204,14 +204,16 @@ export class Orderbook {
         }
         
         for (const [price,qty] of bidsObj) {
-            bids.unshift([price.toString(),qty.toString()])
+            bids.push([price.toString(),qty.toString()])
         }
 
         for (const [price,qty] of asksObj) {
-            asks.unshift([price.toString(),qty.toString()])
+            asks.push([price.toString(),qty.toString()])
         }
 
-        console.log(bids, bidsObj)
+        console.log("ye main bids", this.bids)
+        console.log("ye main asks",this.asks)
+        
         return {
             bids,
             asks

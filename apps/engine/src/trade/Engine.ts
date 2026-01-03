@@ -172,8 +172,6 @@ export class Engine {
             throw new Error("No orderbook found");
           }
           const openOrders = openOrderbook.getOpenOrders(message.data.userId);
-          console.log("open orders", openOrders);
-
           RedisManager.getInstance().sendToApi(clientId, {
             type: "OPEN_ORDERS",
             payload: openOrders,
@@ -334,7 +332,6 @@ export class Engine {
     const depth = orderbook.getDepth();
     const updatedBids = depth?.bids.filter((x) => x[0] === price);
     const updatedAsks = depth?.asks.filter((x) => x[0] === price);
-    console.log(depth,price)
 
     RedisManager.getInstance().publishMessage(`depth@${market}`, {
       stream: `depth@${market}`,
@@ -357,14 +354,13 @@ export class Engine {
       return;
     }
     const depth = orderbook.getDepth();
-    console.log(side,)
     if (side === "buy") {
       const updatedAsks = depth?.asks.filter((x) =>
         fills.map((f) => f.price).includes(x[0].toString())
       );
       
       const updatedBid = depth?.bids.find((x) => x[0] === price);
-      console.log("publish ws depth updates");
+      console.log("publish ws depth updates",updatedBid,updatedAsks);
       RedisManager.getInstance().publishMessage(`depth@${market}`, {
         stream: `depth@${market}`,
         data: {
@@ -378,7 +374,6 @@ export class Engine {
       const updatedBids = depth?.bids.filter((x) =>
         fills.map((f) => f.price).includes(x[0].toString())
       );
-      console.log("boide ",depth.asks, price)
       
       const updatedAsk = depth?.asks.find((x) => x[0] === price);
       console.log("publish ws depth updates");

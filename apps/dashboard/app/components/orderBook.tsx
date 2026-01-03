@@ -9,15 +9,15 @@ import { TradeResponse, TradeWithLoading } from "@repo/types/trade";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader } from "./Loader";
 import { SignalingManager } from "@/lib/SignalManager";
-function setDepthQuantity(res: OrderBookResponse, fromClient: Boolean | undefined) {
+function setDepthQuantity(res: OrderBookResponse, wsUpdate: Boolean | undefined) {
   let { bids, asks } = res
   let [tbids, tasks] = [[...bids], [...asks]];
-  if (!fromClient) {
-    tbids.reverse();
-  }
-  console.log(tasks)
-  if (fromClient) {
+
+  if (wsUpdate) {
     tasks.reverse()
+  }
+  else {
+    tbids.reverse()
   }
   let totalQty = 0;
   bids = tbids.reduce((prevBids: OrderBookEntry[], currentBid) => {
@@ -29,6 +29,7 @@ function setDepthQuantity(res: OrderBookResponse, fromClient: Boolean | undefine
     ] as any;
   }, []);
   totalQty = 0;
+
   asks = tasks.reduce((prevAsks: OrderBookEntry[], currentAsk) => {
     const [value, qty] = currentAsk;
     totalQty += +qty;
@@ -37,9 +38,7 @@ function setDepthQuantity(res: OrderBookResponse, fromClient: Boolean | undefine
       [value, qty, totalQty.toFixed(2).toString()],
     ] as any;
   }, []);
-  if (fromClient) {
-    tasks.reverse()
-  }
+
   res.bids = bids;
   res.asks = asks.reverse()
   return res
@@ -107,7 +106,6 @@ export function OrderBook({ symbol }: { symbol: string }) {
         let updateDone = false
         if (side === "bid") {
           for (let i = 0; i < dataAfterUpdate.length; i++) {
-            console.log(price, dataAfterUpdate[i][0])
             if (+price > +dataAfterUpdate[i][0]) {
               dataAfterUpdate.splice(i, 0, update);
               updateDone = true
@@ -117,7 +115,6 @@ export function OrderBook({ symbol }: { symbol: string }) {
         }
         else {
           for (let i = 0; i < dataAfterUpdate.length; i++) {
-            console.log(price, dataAfterUpdate[i][0])
             if (+price > +dataAfterUpdate[i][0]) {
               dataAfterUpdate.splice(i, 0, update);
               updateDone = true
@@ -139,7 +136,7 @@ export function OrderBook({ symbol }: { symbol: string }) {
   }
   useEffect(() => {
     SignalingManager.getInstance().registerCallback("depth", (update: any) => {
-
+      console.log("update is the ", update)
       setDepth((prevOrderbook: OrderBookClient) => {
         const bid = update.bids?.[0];
         const ask = update.asks?.[0]
