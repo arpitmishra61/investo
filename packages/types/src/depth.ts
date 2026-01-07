@@ -5,7 +5,7 @@ export type OrderBookResponse = {
   bids: OrderBookEntry[];
   asks: OrderBookEntry[];
   symbol?: string;
-};
+} 
 
 export type OrderBookClient = {
   data: OrderBookResponse;

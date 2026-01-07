@@ -1,4 +1,3 @@
-import { VectorAlgorithms } from "redis";
 import { BASE_CURRENCY } from "./Engine";
 
 export interface Order {
@@ -9,6 +8,7 @@ export interface Order {
     side: "buy" | "sell";
     userId: string;
     timeStamp: number
+    rQuantity: number
 }
 
 export interface Fill {
@@ -101,7 +101,7 @@ export class Orderbook {
         } else {
             console.log(order)
             const { executedQty, fills } = this.matchAsk(order);
-            console.log(executedQty, fills)
+            console.log("ye dekhna", executedQty, fills,order.quantity)
             order.filled = executedQty;
             if (executedQty === order.quantity) {
                 return {
@@ -119,13 +119,18 @@ export class Orderbook {
 
     matchBid(order: Order): {fills: Fill[], executedQty: number} {
         const fills: Fill[] = [];
+       
         let executedQty = 0;
-console.log("here is the aSK", this.asks)
         for (let i = 0; i < this.asks.length; i++) {
+            console.log("ye wala", order.price, order.quantity)
             if (this.asks[i].price <= order.price && executedQty < order.quantity) {
-                const filledQty = Math.min((order.quantity - executedQty), this.asks[i].quantity);
+                const filledQty = Math.min(order.rQuantity, this.asks[i].rQuantity);
+                console.log("filled Qty", filledQty)
                 executedQty += filledQty;
                 this.asks[i].filled += filledQty;
+                this.asks[i].rQuantity -= filledQty
+                order.rQuantity-=filledQty
+
                 fills.push({
                     price: this.asks[i].price.toString(),
                     qty: filledQty,
@@ -138,7 +143,7 @@ console.log("here is the aSK", this.asks)
         }
         for (let i = 0; i < this.asks.length; i++) {
              
-            if (this.asks[i].filled === this.asks[i].quantity) {
+            if (this.asks[i].rQuantity === 0) {
                 
                 this.asks.splice(i, 1);
                 i--;
@@ -154,15 +159,16 @@ console.log("here is the aSK", this.asks)
         const fills: Fill[] = [];
         let executedQty = 0;
         
-        for (let i = 0; i < this.bids.length; i++) {
-            if (this.bids[i].price >= order.price && executedQty < order.quantity) {
-                const amountRemaining = Math.min(order.quantity - executedQty, this.bids[i].quantity);
-                executedQty += amountRemaining;
-                this.bids[i].filled += amountRemaining;
-                order.quantity-=executedQty
+        for (let i = this.bids.length-1; i > -1; i--) {
+            if (this.bids[i].price >= order.price && executedQty < (order.quantity)) {
+                const filledQty = Math.min(order.rQuantity, this.bids[i].rQuantity);
+                executedQty += filledQty;
+                this.bids[i].filled += filledQty;
+                this.bids[i].rQuantity -= filledQty
+                order.rQuantity-=filledQty
                 fills.push({
                     price: this.bids[i].price.toString(),
-                    qty: amountRemaining,
+                    qty: filledQty,
                     tradeId: this.lastTradeId++,
                     otherUserId: this.bids[i].userId,
                     markerOrderId: this.bids[i].orderId,
@@ -171,7 +177,7 @@ console.log("here is the aSK", this.asks)
             }
         }
         for (let i = 0; i < this.bids.length; i++) {
-            if (this.bids[i].filled === this.bids[i].quantity) {
+            if (this.bids[i].rQuantity === 0) {
                 this.bids.splice(i, 1);
                 i--;
             }
@@ -184,7 +190,6 @@ console.log("here is the aSK", this.asks)
 
     //TODO: Can you make this faster? Can you compute this during order matches?
     getDepth() {
-        console.log("asks", this.asks)
         const bids: [string, string][] = [];
         const asks: [string, string][] = [];
 
@@ -194,25 +199,22 @@ console.log("here is the aSK", this.asks)
         for (let i = 0; i < this.bids.length; i++) {
             const order = this.bids[i];
             const previousQty =  bidsObj.get(order.price) ?? 0 
-            bidsObj.set(order.price,previousQty ===0?  order.quantity : order.quantity+ previousQty)
+            bidsObj.set(order.price,previousQty ===0?  order.rQuantity : order.rQuantity+ previousQty)
         }
 
         for (let i = 0; i < this.asks.length; i++) {
             const order = this.asks[i];
             const previousQty =  asksObj.get(order.price) ?? 0 
-            asksObj.set(order.price,previousQty ===0?  order.quantity : order.quantity+ previousQty)
+            asksObj.set(order.price,previousQty ===0?  order.rQuantity : order.rQuantity+ previousQty)
         }
         
-        for (const [price,qty] of bidsObj) {
+        for (const [price, qty] of bidsObj) {
             bids.push([price.toString(),qty.toString()])
         }
 
-        for (const [price,qty] of asksObj) {
+        for (const [price, qty] of asksObj) {
             asks.push([price.toString(),qty.toString()])
         }
-
-        console.log("ye main bids", this.bids)
-        console.log("ye main asks",this.asks)
         
         return {
             bids,

@@ -249,7 +249,8 @@ export class Engine {
       filled: 0,
       side,
       userId,
-      timeStamp
+      timeStamp,
+      rQuantity: +quantity
     };
 
     const { fills, executedQty } = orderbook.addOrder(order);
@@ -330,6 +331,8 @@ export class Engine {
       return;
     }
     const depth = orderbook.getDepth();
+    console.log(depth.asks)
+
     const updatedBids = depth?.bids.filter((x) => x[0] === price);
     const updatedAsks = depth?.asks.filter((x) => x[0] === price);
 
@@ -342,7 +345,14 @@ export class Engine {
       },
     });
   }
-
+  fillsNotPresentInAsks( fills: Fill[], asks:[string,string][]): Fill[] {
+    return fills.filter(fill=> asks.filter(ask=>ask[0]===fill.price).length==0)
+  
+  }
+  fillsNotPresentInBids(fills: Fill[], bids:[string,string][]): Fill[] {
+    return fills.filter(fill=> bids.filter(bid=>bid[0]===fill.price).length==0)
+  
+}
   publisWsDepthUpdates(
     fills: Fill[],
     price: string,
@@ -354,11 +364,20 @@ export class Engine {
       return;
     }
     const depth = orderbook.getDepth();
+    console.log("ws", depth.asks)
     if (side === "buy") {
       const updatedAsks = depth?.asks.filter((x) =>
         fills.map((f) => f.price).includes(x[0].toString())
       );
+      const completeFills : Fill[] = this.fillsNotPresentInAsks(fills,depth?.asks)
+      let completedAsks: [string, string][] = completeFills.map(fill => [`${fill.price}`, '0'])
+      //remove duplicates 
+      completedAsks= [...new Map(completedAsks.map(x => [x[0], x])).values()]
+
+      console.log("completedAsks", completedAsks)
+      updatedAsks.push(...completedAsks)
       
+  
       const updatedBid = depth?.bids.find((x) => x[0] === price);
       console.log("publish ws depth updates",updatedBid,updatedAsks);
       RedisManager.getInstance().publishMessage(`depth@${market}`, {
@@ -376,7 +395,12 @@ export class Engine {
       );
       
       const updatedAsk = depth?.asks.find((x) => x[0] === price);
-      console.log("publish ws depth updates");
+      const completeFills : Fill[] = this.fillsNotPresentInBids(fills,depth?.bids)
+      let completedBids: [string, string][] = completeFills.map(fill => [`${fill.price}`, '0'])
+      completedBids= [...new Map(completedBids.map(x => [x[0], x])).values()]
+     
+      updatedBids.push(...completedBids)
+      console.log("publish ws depth updates",updatedBids, updatedAsk);
       RedisManager.getInstance().publishMessage(`depth@${market}`, {
         stream: `depth@${market}`,
         data: {

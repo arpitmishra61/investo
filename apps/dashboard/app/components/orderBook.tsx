@@ -11,6 +11,7 @@ import { Loader } from "./Loader";
 import { SignalingManager } from "@/lib/SignalManager";
 function setDepthQuantity(res: OrderBookResponse, wsUpdate: Boolean | undefined) {
   let { bids, asks } = res
+
   let [tbids, tasks] = [[...bids], [...asks]];
 
   if (wsUpdate) {
@@ -73,22 +74,18 @@ export function OrderBook({ symbol }: { symbol: string }) {
     });
   }, []);
 
-  function updateTheDepth({ update, side, depth }: any) {
+  function updateTheDepth({ update, side, bidsOrAsks }: any) {
     const [price, quantity] = update
-    console.log("fsfsfsfsfsf", update)
-    let dataAfterUpdate
-    if (side === "ask") {
-      dataAfterUpdate = [...depth.asks]
 
-    }
-    else {
-      dataAfterUpdate = [...depth.bids]
-    }
+    let dataAfterUpdate = bidsOrAsks
     console.log("dau", dataAfterUpdate)
 
     const index = dataAfterUpdate.findIndex(([p]) => {
       return p === price
     });
+    if (price === '1103') {
+      console.log("1103", quantity, index)
+    }
     if (quantity === "0") {
       if (index !== -1) {
         dataAfterUpdate.splice(index, 1);
@@ -97,59 +94,50 @@ export function OrderBook({ symbol }: { symbol: string }) {
     }
 
     // 🔁 Update existing level
-    if (index !== -1) {
+    if (index !== -1 && quantity !== "0") {
       dataAfterUpdate[index][1] = quantity;
 
     }
     else {
       if (index === -1) {
         let updateDone = false
-        if (side === "bid") {
-          for (let i = 0; i < dataAfterUpdate.length; i++) {
-            if (+price > +dataAfterUpdate[i][0]) {
-              dataAfterUpdate.splice(i, 0, update);
-              updateDone = true
-              break;
-            }
+        for (let i = 0; i < dataAfterUpdate.length; i++) {
+          if (+price > +dataAfterUpdate[i][0]) {
+            dataAfterUpdate.splice(i, 0, update);
+            updateDone = true
+            break;
           }
         }
-        else {
-          for (let i = 0; i < dataAfterUpdate.length; i++) {
-            if (+price > +dataAfterUpdate[i][0]) {
-              dataAfterUpdate.splice(i, 0, update);
-              updateDone = true
-              break;
-            }
-          }
-
-        }
-
         if (!updateDone) {
           console.log("work")
           dataAfterUpdate.push(update)
-
         }
       }
     }
-    console.log(dataAfterUpdate)
+    console.log("main", dataAfterUpdate)
     return dataAfterUpdate
   }
   useEffect(() => {
-    SignalingManager.getInstance().registerCallback("depth", (update: any) => {
-      console.log("update is the ", update)
-      setDepth((prevOrderbook: OrderBookClient) => {
-        const bid = update.bids?.[0];
-        const ask = update.asks?.[0]
-        const { bids, asks } = prevOrderbook.data
-        const entry = bid ?? ask
-        const side = bid ? "bid" : "ask"
+    SignalingManager.getInstance().registerCallback("depth", (update: { bids: OrderBookEntry[], asks: OrderBookEntry[] }) => {
 
-        const dataAfterUpdate = updateTheDepth({ update: entry, side, depth: prevOrderbook.data })
+      if (update?.asks || update?.bids)
+        setDepth((prevOrderbook: OrderBookClient) => {
+          let bidsAfterUpdate: OrderBookEntry[] = prevOrderbook.data.bids
+          let asksAfterUpdate: OrderBookEntry[] = prevOrderbook.data.asks
+          let updatedDataWithQty: OrderBookResponse = { bids: [], asks: [] }
+          console.log("update is the", update, bidsAfterUpdate)
+          update.bids?.forEach(bid => {
+            bidsAfterUpdate = updateTheDepth({ update: bid, side: "bid", bidsOrAsks: bidsAfterUpdate })
+          })
+          update.asks?.forEach(ask => {
+            asksAfterUpdate = updateTheDepth({ update: ask, side: "ask", bidsOrAsks: asksAfterUpdate })
+          })
+          if (bidsAfterUpdate.length || asksAfterUpdate.length) {
+            updatedDataWithQty = setDepthQuantity({ bids: bidsAfterUpdate, asks: asksAfterUpdate }, true)
+          }
+          return { data: updatedDataWithQty, loading: false }
 
-        const updatedData = bid ? setDepthQuantity({ bids: dataAfterUpdate, asks }, true) : setDepthQuantity({ asks: dataAfterUpdate, bids }, true)
-        return { data: updatedData, loading: false }
-
-      });
+        });
 
     }, `DEPTH-${symbol}`);
     return () => {
@@ -176,7 +164,7 @@ export function OrderBook({ symbol }: { symbol: string }) {
             <div>
               {depth.loading
                 ? <Loader message="Fetching asks.." />
-                : depth.data.asks.map((ask, i) => (
+                : depth?.data?.asks.map((ask, i) => (
                   <>
                     <Row
                       key={i}
@@ -194,7 +182,7 @@ export function OrderBook({ symbol }: { symbol: string }) {
             <div className="mt-1">
               {depth.loading
                 ? <Loader message="Fetching bids.." />
-                : depth.data.bids.map((bid, i) => (
+                : depth.data?.bids.map((bid, i) => (
                   <>
                     <Row
                       key={i}

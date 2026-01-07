@@ -15,7 +15,6 @@ async function main() {
     const messageFromRedis = await redisClient.rPop("messages" as string);
     if (!messageFromRedis) {
     } else {
-      console.log("response1 ", messageFromRedis);
       const response = JSON.parse(messageFromRedis) as responseType
       console.log(response)
       if (response.message.type === CREATE_ORDER) {
