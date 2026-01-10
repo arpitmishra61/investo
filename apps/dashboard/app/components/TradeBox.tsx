@@ -128,12 +128,12 @@ export function TradingOrderForm() {
                                 'Content-Type': 'application/json',
                             },
                         });
-                        toast.success("Trade executed successfully ✅", {
-                            description: "Your order has been filled.",
+                        const { executedQty, rQuantity } = response.data
+                        toast.success("Trade done successfully ✅", {
+                            description: `Executed quantity ${executedQty}. Remaning Quantity ${rQuantity}`,
                             className: "trade-success-toast",
                         })
 
-                        console.log(response.data);
                     } catch (error) {
                         toast.error("Error !!! ❌", {
                             description: "Some error.",

@@ -1,8 +1,8 @@
 export type Trade = {
   id?: number;
-  isBuyerMaker?: boolean;
+  side?: "buy" | "sell";
   price: string;
-  quantity?: string;
+  qty?: string;
   quoteQuantity?: string;
   time: number;
 };

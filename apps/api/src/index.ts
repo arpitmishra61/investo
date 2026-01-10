@@ -5,6 +5,7 @@ import { depthRouter } from "./routes/depth";
 import { tradesRouter } from "./routes/trades";
 import { klineRouter } from "./routes/kline";
 import { tickersRouter } from "./routes/ticker";
+import { balanceRouter } from "./routes/balance";
 
 const app = express();
 const PORT = process.env.PORT || 8000;
@@ -16,6 +17,7 @@ app.use("/api/v1/depth", depthRouter);
 app.use("/api/v1/trades", tradesRouter);
 app.use("/api/v1/klines", klineRouter);
 app.use("/api/v1/tickers", tickersRouter);
+app.use("/api/v1/balance", balanceRouter);
 
 app.listen(PORT, () => {
   console.log("Server is running on port ", PORT);

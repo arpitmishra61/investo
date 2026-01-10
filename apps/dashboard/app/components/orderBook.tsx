@@ -4,7 +4,7 @@ import { Separator } from "@/components/ui/separator";
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { OrderBookEntry, OrderBookResponse, OrderBookClient } from "@repo/types/depth";
-import { TradeResponse, TradeWithLoading } from "@repo/types/trade";
+import { Trade, TradeResponse, TradeWithLoading } from "@repo/types/trade";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader } from "./Loader";
@@ -64,6 +64,7 @@ export function OrderBook({ symbol }: { symbol: string }) {
   useEffect(() => {
 
     SignalingManager.getInstance().sendMessage({ "method": "SUBSCRIBE", "params": [`depth@${market}`] });
+    SignalingManager.getInstance().sendMessage({ "method": "SUBSCRIBE", "params": [`trade@${market}`] });
     axios.get<OrderBookResponse>(`http://localhost:8000/api/v1/depth?symbol=TATA_INR`).then((res) => {
       const updatedData = setDepthQuantity(res.data, false)
       setDepth({ data: updatedData, loading: false });
@@ -78,14 +79,9 @@ export function OrderBook({ symbol }: { symbol: string }) {
     const [price, quantity] = update
 
     let dataAfterUpdate = bidsOrAsks
-    console.log("dau", dataAfterUpdate)
-
     const index = dataAfterUpdate.findIndex(([p]) => {
       return p === price
     });
-    if (price === '1103') {
-      console.log("1103", quantity, index)
-    }
     if (quantity === "0") {
       if (index !== -1) {
         dataAfterUpdate.splice(index, 1);
@@ -109,12 +105,10 @@ export function OrderBook({ symbol }: { symbol: string }) {
           }
         }
         if (!updateDone) {
-          console.log("work")
           dataAfterUpdate.push(update)
         }
       }
     }
-    console.log("main", dataAfterUpdate)
     return dataAfterUpdate
   }
   useEffect(() => {
@@ -122,10 +116,11 @@ export function OrderBook({ symbol }: { symbol: string }) {
 
       if (update?.asks || update?.bids)
         setDepth((prevOrderbook: OrderBookClient) => {
+
           let bidsAfterUpdate: OrderBookEntry[] = prevOrderbook.data.bids
           let asksAfterUpdate: OrderBookEntry[] = prevOrderbook.data.asks
           let updatedDataWithQty: OrderBookResponse = { bids: [], asks: [] }
-          console.log("update is the", update, bidsAfterUpdate)
+
           update.bids?.forEach(bid => {
             bidsAfterUpdate = updateTheDepth({ update: bid, side: "bid", bidsOrAsks: bidsAfterUpdate })
           })
@@ -140,12 +135,20 @@ export function OrderBook({ symbol }: { symbol: string }) {
         });
 
     }, `DEPTH-${symbol}`);
+    SignalingManager.getInstance().registerCallback("trade", (update: Trade) => {
+      setTrades((state) => ({
+        ...state,
+        data: [...state.data, update]
+      }))
+
+    }, `TRADE-${symbol}`);
     return () => {
       SignalingManager.getInstance().deRegisterCallback("depth", `DEPTH-${symbol}`)
+      SignalingManager.getInstance().deRegisterCallback("trade", `TRADE-${symbol}`)
     }
 
   }, [symbol])
-
+  const tradesToRender = [...trades.data].reverse()
   return (
     <Card className="p-4 h-full">
       <Tabs defaultValue="orderbook" className="w-full">
@@ -207,7 +210,7 @@ export function OrderBook({ symbol }: { symbol: string }) {
           <div>
             {trades.loading
               ? <Loader message="Fetching Trades.." />
-              : trades.data.map((trade, i) => (
+              : tradesToRender.map((trade, i) => (
                 <>
                   <Row
                     key={i}
@@ -216,9 +219,10 @@ export function OrderBook({ symbol }: { symbol: string }) {
                       hour: "2-digit",
                       minute: "2-digit",
                       second: "2-digit",
+                      hour12: false
                     })}
-                    qty={trade.quantity}
-                    color={trade.isBuyerMaker ? "green" : "red"}
+                    qty={trade.qty}
+                    color={trade.side === "buy" ? "green" : "red"}
                   />
                   <Separator />
                 </>

@@ -7,7 +7,7 @@ const client = new Client({
 
 async function initializeDB() {
   await client.connect();
-  console.log("connected to bd for seed");
+  console.log("connected to db for seed");
 
   await client.query(`
         DROP TABLE IF EXISTS "tata_prices";
@@ -15,8 +15,9 @@ async function initializeDB() {
             id              BIGSERIAL,
             time            TIMESTAMP WITH TIME ZONE NOT NULL,
             price   DOUBLE PRECISION,
-            volume      DOUBLE PRECISION,
-            currency_code   VARCHAR (10)
+            qty      NUMERIC(18,2),
+            currency_code   VARCHAR (10),
+            side     VARCHAR(4) CHECK (side IN ('buy', 'sell')) NOT NULL
         );
         
         SELECT create_hypertable('tata_prices', 'time', 'price', 2);
@@ -30,7 +31,6 @@ async function initializeDB() {
             max(price) AS high,
             min(price) AS low,
             last(price, time) AS close,
-            sum(volume) AS volume,
             currency_code
         FROM tata_prices
         GROUP BY bucket, currency_code;
@@ -44,7 +44,6 @@ async function initializeDB() {
             max(price) AS high,
             min(price) AS low,
             last(price, time) AS close,
-            sum(volume) AS volume,
             currency_code
         FROM tata_prices
         GROUP BY bucket, currency_code;
@@ -58,7 +57,6 @@ async function initializeDB() {
             max(price) AS high,
             min(price) AS low,
             last(price, time) AS close,
-            sum(volume) AS volume,
             currency_code
         FROM tata_prices
         GROUP BY bucket, currency_code;

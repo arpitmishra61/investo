@@ -81,48 +81,54 @@ export class Orderbook {
     //TODO: Add self trade prevention
     addOrder(order: Order): {
         executedQty: number,
-        fills: Fill[]
+        fills: Fill[],
+        rQuantity:number
     } {
         console.log("orderbook is the", order)
         if (order.side === "buy") {
-            const {executedQty, fills} = this.matchBid(order); 
+            const { executedQty, fills, rQuantity } = this.matchBid(order); 
+            console.log("rQuantity", rQuantity)
             order.filled = executedQty;
             if (executedQty === order.quantity) {
                 return {
                     executedQty,
-                    fills
+                    fills,
+                    rQuantity
                 }
             }
            this.insertBid(order)
             return {
                 executedQty,
-                fills
+                fills,
+                rQuantity
             }
         } else {
             console.log(order)
-            const { executedQty, fills } = this.matchAsk(order);
+            const { executedQty, fills, rQuantity } = this.matchAsk(order);
             console.log("ye dekhna", executedQty, fills,order.quantity)
             order.filled = executedQty;
             if (executedQty === order.quantity) {
                 return {
                     executedQty,
-                    fills
+                    fills,
+                    rQuantity
                 }
             }
             this.insertAsk(order)
             return {
                 executedQty,
-                fills
+                fills,
+                rQuantity
             }
         }
     }
 
-    matchBid(order: Order): {fills: Fill[], executedQty: number} {
+    matchBid(order: Order): {fills: Fill[], executedQty: number, rQuantity:number} {
         const fills: Fill[] = [];
        
         let executedQty = 0;
         for (let i = 0; i < this.asks.length; i++) {
-            console.log("ye wala", order.price, order.quantity)
+            console.log("ye wala", order)
             if (this.asks[i].price <= order.price && executedQty < order.quantity) {
                 const filledQty = Math.min(order.rQuantity, this.asks[i].rQuantity);
                 console.log("filled Qty", filledQty)
@@ -151,11 +157,12 @@ export class Orderbook {
         }
         return {
             fills,
-            executedQty
+            executedQty,
+            rQuantity: order.rQuantity
         };
     }
 
-    matchAsk(order: Order): {fills: Fill[], executedQty: number} {
+    matchAsk(order: Order): {fills: Fill[], executedQty: number, rQuantity:number} {
         const fills: Fill[] = [];
         let executedQty = 0;
         
@@ -184,7 +191,8 @@ export class Orderbook {
         }
         return {
             fills,
-            executedQty
+            executedQty,
+            rQuantity:order.rQuantity
         };
     }
 

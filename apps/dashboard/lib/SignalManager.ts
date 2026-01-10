@@ -51,6 +51,18 @@ export class SignalingManager {
                         }
 
                         callback(newTicker);
+                    }
+                    if (type === "trade") {
+                         const {t:tradeId,p:price,q:qty,ts:time,s:side} = message.data
+                        const newTrade = {
+                            tradeId,
+                            price,
+                            qty,
+                            time,
+                            side: side ? "buy" :"sell"
+                           
+                        }
+                        callback(newTrade);
                    }
                    if (type === "depth") {
                         const updatedBids = message.data.b;

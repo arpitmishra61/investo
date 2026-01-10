@@ -17,6 +17,7 @@ export type MessageToApi = {
     payload: {
         orderId: string,
         executedQty: number,
+        rQuantity: number
         fills: {
             price: string,
             qty: number,
@@ -33,4 +34,7 @@ export type MessageToApi = {
 } | {
     type: "OPEN_ORDERS",
     payload: Order[]
+}| {
+    type: "BALANCE",
+    payload: Record <"available" | "locked", number>
 }

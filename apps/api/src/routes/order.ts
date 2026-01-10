@@ -24,6 +24,7 @@ orderRouter.post("/", async (req, res) => {
       timeStamp : Date.now()
     },
   });
+  console.log("Fdxzgsedg", response)
   res.json(response.payload);
 });
 

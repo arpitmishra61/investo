@@ -32,6 +32,7 @@ export type TradeAddedMessage = {
         p: string,
         q: string,
         s: string, // symbol
+        ts: number
     }
 }
 

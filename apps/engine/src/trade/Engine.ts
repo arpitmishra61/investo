@@ -8,8 +8,10 @@ import {
   GET_OPEN_ORDERS,
   MessageFromApi,
   ON_RAMP,
+  GET_BALANCE
 } from "../types/fromApi";
 import { Fill, Order, Orderbook } from "./Orderbook";
+import { response } from "express";
 
 //TODO: Avoid floats everywhere, use a decimal similar to the PayTM project for every currency
 export const BASE_CURRENCY = "INR";
@@ -76,7 +78,7 @@ export class Engine {
       case CREATE_ORDER:
         try {
           console.log(message);
-          const { executedQty, fills, orderId } = this.createOrder(
+          const { executedQty, fills, orderId, rQuantity } = this.createOrder(
             message.data.market,
             message.data.price,
             message.data.quantity,
@@ -90,6 +92,7 @@ export class Engine {
               orderId,
               executedQty,
               fills,
+              rQuantity
             },
           });
         } catch (e) {
@@ -207,6 +210,25 @@ export class Engine {
           });
         }
         break;
+    
+      case GET_BALANCE: {
+        try {
+          const { userId } = message.data
+          console.log("reachumngh erher", userId)
+          const userBalance = this.balances.get(userId);
+          console.log("baa", userBalance)
+           RedisManager.getInstance().sendToApi(clientId, {
+            type: "BALANCE",
+            payload: userBalance as unknown as Record <"available" | "locked", number>
+          });
+
+        }
+        catch (err) {
+          console.log("Fetching balance error", err)
+        }
+      
+      }
+        break;
     }
   }
 
@@ -253,14 +275,15 @@ export class Engine {
       rQuantity: +quantity
     };
 
-    const { fills, executedQty } = orderbook.addOrder(order);
+    const { fills, executedQty, rQuantity } = orderbook.addOrder(order);
+    console.log("rQuantity---", rQuantity)
     this.updateBalance(userId, baseAsset, quoteAsset, side, fills, executedQty);
 
     this.createDbTrades(fills, market, userId);
     this.updateDbOrders(order, executedQty, fills, market);
     this.publisWsDepthUpdates(fills, price, side, market);
     this.publishWsTrades(fills, userId, market);
-    return { executedQty, fills, orderId: order.orderId };
+    return { executedQty, fills, orderId: order.orderId, rQuantity };
   }
 
   updateDbOrders(
@@ -318,8 +341,9 @@ export class Engine {
           t: fill.tradeId,
           m: fill.otherUserId === userId, // TODO: Is this right?
           p: fill.price,
-          q: fill.qty.toString(),
+          q: fill.qty.toPrecision(3),
           s: market,
+          ts: fill.timeStamp
         },
       });
     });

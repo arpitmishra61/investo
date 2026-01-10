@@ -39,7 +39,10 @@ export function PriceChart() {
             wickUpColor: "#22c55e",
             wickDownColor: "#ef4444",
         });
-        axios.get("http://localhost:8000/api/v1/klines?symbol=TATA_INR&interval=1m&endTime=1767203390233&startTime=1767020774440").then(res => {
+        const currentTime = Date.now()
+        const startTime = currentTime - 172800000
+        const endTime = currentTime
+        axios.get(`http://localhost:8000/api/v1/klines?symbol=TATA_INR&interval=1m&endTime=${endTime}&startTime=${startTime}`).then(res => {
             series.setData(res.data);
             chart.timeScale().fitContent();
         })
