@@ -6,6 +6,7 @@ export const GET_OPEN_ORDERS = "GET_OPEN_ORDERS";
 
 export const GET_DEPTH = "GET_DEPTH";
 export const GET_BALANCE = "GET_BALANCE";
+export const GET_CURRENT_PRICE = "GET_CURRENT_PRICE";
 
 export type MessageFromOrderbook = {
     type: "DEPTH",
@@ -43,5 +44,10 @@ export type MessageFromOrderbook = {
         quantity: string,
         side: "buy" | "sell",
         userId: string
-    }[]
-}
+    }[] 
+} | {
+        type: "CURRENT_BALANCE",
+        payload: {
+            currentPrice: number
+        }
+    }

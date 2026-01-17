@@ -4,7 +4,7 @@ import { Separator } from "@/components/ui/separator";
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { OrderBookEntry, OrderBookResponse, OrderBookClient } from "@repo/types/depth";
-import { Trade, TradeResponse, TradeWithLoading } from "@repo/types/trade";
+import { CurrentPriceResponse, Trade, TradeResponse, TradeWithLoading } from "@repo/types/trade";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader } from "./Loader";
@@ -45,7 +45,7 @@ function setDepthQuantity(res: OrderBookResponse, wsUpdate: Boolean | undefined)
   return res
 
 }
-export function OrderBook({ symbol }: { symbol: string }) {
+export function OrderBook({ symbol = "TATA_INR" }: { symbol: string }) {
   const market = "TATA_INR"
   const [depth, setDepth] = useState<OrderBookClient>({
     data: {
@@ -60,11 +60,12 @@ export function OrderBook({ symbol }: { symbol: string }) {
     data: [],
     loading: true,
   });
-
+  const [currentPriceData, setCurrentPriceData] = useState<CurrentPriceResponse | null>(null);
   useEffect(() => {
 
     SignalingManager.getInstance().sendMessage({ "method": "SUBSCRIBE", "params": [`depth@${market}`] });
     SignalingManager.getInstance().sendMessage({ "method": "SUBSCRIBE", "params": [`trade@${market}`] });
+    SignalingManager.getInstance().sendMessage({ "method": "SUBSCRIBE", "params": [`current_price@${market}`] });
     axios.get<OrderBookResponse>(`http://localhost:8000/api/v1/depth?symbol=TATA_INR`).then((res) => {
       const updatedData = setDepthQuantity(res.data, false)
       setDepth({ data: updatedData, loading: false });
@@ -72,6 +73,9 @@ export function OrderBook({ symbol }: { symbol: string }) {
 
     axios.get<TradeResponse>(`http://localhost:8000/api/v1/trades?symbol=${symbol}`).then((res) => {
       setTrades({ data: res.data.trades, loading: false });
+    });
+    axios.get<CurrentPriceResponse>(`http://localhost:8000/api/v1/tickers/current_price?market=${symbol}`).then((res) => {
+      setCurrentPriceData(res.data);
     });
   }, []);
 
@@ -135,6 +139,7 @@ export function OrderBook({ symbol }: { symbol: string }) {
         });
 
     }, `DEPTH-${symbol}`);
+
     SignalingManager.getInstance().registerCallback("trade", (update: Trade) => {
       setTrades((state) => ({
         ...state,
@@ -142,9 +147,17 @@ export function OrderBook({ symbol }: { symbol: string }) {
       }))
 
     }, `TRADE-${symbol}`);
+
+    SignalingManager.getInstance().registerCallback("current_price", (update: string) => {
+      console.log("update", update)
+      setCurrentPriceData({ currentPrice: update, success: true })
+    }, `CURRENT_PRICE-${symbol}`);
+
     return () => {
       SignalingManager.getInstance().deRegisterCallback("depth", `DEPTH-${symbol}`)
       SignalingManager.getInstance().deRegisterCallback("trade", `TRADE-${symbol}`)
+      SignalingManager.getInstance().deRegisterCallback("current_price", `CURRENT_PRICE-${symbol}`)
+
     }
 
   }, [symbol])
@@ -180,7 +193,7 @@ export function OrderBook({ symbol }: { symbol: string }) {
                   </>
                 ))}
             </div>
-
+            <strong className="mt-2">{currentPriceData && currentPriceData.currentPrice}</strong>
             {/* Bids */}
             <div className="mt-1">
               {depth.loading

@@ -1,4 +1,4 @@
-import { CANCEL_ORDER, CREATE_ORDER, GET_BALANCE, GET_DEPTH, GET_OPEN_ORDERS, ON_RAMP } from "."
+import { CANCEL_ORDER, CREATE_ORDER, GET_BALANCE, GET_DEPTH, GET_OPEN_ORDERS, ON_RAMP, GET_CURRENT_PRICE } from "."
 
 export type MessageToEngine = {
     type: typeof CREATE_ORDER,
@@ -8,7 +8,7 @@ export type MessageToEngine = {
         quantity: string,
         side: "buy" | "sell",
         userId: string,
-        timeStamp:number
+        timeStamp: number
     }
 } | {
     type: typeof CANCEL_ORDER,
@@ -39,4 +39,11 @@ export type MessageToEngine = {
     data: {
         userId: string,
     }
+} | {
+    type: typeof GET_CURRENT_PRICE,
+    data: {
+        market: string
+    }
+
+
 }

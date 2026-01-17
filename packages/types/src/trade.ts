@@ -14,3 +14,7 @@ export type TradeWithLoading = {
   message?: string;
   loading?: boolean;
 };
+
+export type CurrentPriceResponse = {
+currentPrice:string, success:boolean, message?:string;
+};

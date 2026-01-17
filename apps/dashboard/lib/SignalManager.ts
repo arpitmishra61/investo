@@ -69,6 +69,16 @@ export class SignalingManager {
                         const updatedAsks = message.data.a;
                         callback({ bids: updatedBids, asks: updatedAsks });
                     }
+                    if (type === "balance") {
+                        const balance = message.data.b;
+                        
+                        callback(balance);
+                    }
+                    if (type === "current_price") {
+                        console.log("reaching at price")
+                        const current_balance = message.data.p;                        
+                        callback(current_balance);
+                    }
                 });
             }
         }

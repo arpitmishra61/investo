@@ -1,11 +1,9 @@
 export interface Ticker {
-    "firstPrice": string,
-    "high": string,
-    "lastPrice": string,
-    "low": string,
-    "priceChange": string,
-    "priceChangePercent": string,
-    "quoteVolume": string,
-    "symbol": string,
-    "volume": string
+  lastPrice: number;
+  low24h: number;
+  high24h: number;
+  volume24h: number;
+  open24h: number;
+  priceChange24h: number;
+  priceChangePercent24h: number;
 }

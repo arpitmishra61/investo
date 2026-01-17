@@ -1,4 +1,4 @@
-
+import { markets } from '@/lib/market';
 export const CREATE_ORDER = "CREATE_ORDER";
 export const CANCEL_ORDER = "CANCEL_ORDER";
 export const ON_RAMP = "ON_RAMP";
@@ -6,6 +6,7 @@ export const ON_RAMP = "ON_RAMP";
 export const GET_DEPTH = "GET_DEPTH";
 export const GET_OPEN_ORDERS = "GET_OPEN_ORDERS";
 export const GET_BALANCE = "GET_BALANCE";
+export const GET_CURRENT_PRICE = "GET_CURRENT_PRICE";
 
 
 //TODO: Can we share the types between the api and the engine?
@@ -47,5 +48,10 @@ export type MessageFromApi = {
     type: typeof GET_BALANCE,
     data: {
         userId: string,
+    }
+} | {
+    type: typeof GET_CURRENT_PRICE,
+    data: {
+        market: string,
     }
 }

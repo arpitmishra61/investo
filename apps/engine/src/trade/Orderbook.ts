@@ -33,40 +33,40 @@ export class Orderbook {
         this.asks = asks;
         this.baseAsset = baseAsset;
         this.lastTradeId = lastTradeId || 0;
-        this.currentPrice = currentPrice ||0;
+        this.currentPrice = currentPrice || 0;
     }
 
     ticker() {
         return `${this.baseAsset}_${this.quoteAsset}`;
     }
-    insertBid(order:Order) {
-    let i = 0;
-    while (
-        i < this.bids.length &&
-        (
-            this.bids[i].price < order.price ||
-            (this.bids[i].price === order.price &&
-             this.bids[i].timeStamp <= order.timeStamp)
-        )
-    ) {
-        i++;
+    insertBid(order: Order) {
+        let i = 0;
+        while (
+            i < this.bids.length &&
+            (
+                this.bids[i].price < order.price ||
+                (this.bids[i].price === order.price &&
+                    this.bids[i].timeStamp <= order.timeStamp)
+            )
+        ) {
+            i++;
+        }
+        this.bids.splice(i, 0, order);
     }
-    this.bids.splice(i, 0, order);
-    }
-    insertAsk(order:Order) {
-    let i = 0;
-    while (
-        i < this.asks.length &&
-        (
-            this.asks[i].price < order.price ||
-            (this.asks[i].price === order.price &&
-             this.asks[i].timeStamp <= order.timeStamp)
-        )
-    ) {
-        i++;
-    }
+    insertAsk(order: Order) {
+        let i = 0;
+        while (
+            i < this.asks.length &&
+            (
+                this.asks[i].price < order.price ||
+                (this.asks[i].price === order.price &&
+                    this.asks[i].timeStamp <= order.timeStamp)
+            )
+        ) {
+            i++;
+        }
         this.asks.splice(i, 0, order);
-}
+    }
 
     getSnapshot() {
         return {
@@ -82,11 +82,11 @@ export class Orderbook {
     addOrder(order: Order): {
         executedQty: number,
         fills: Fill[],
-        rQuantity:number
+        rQuantity: number
     } {
         console.log("orderbook is the", order)
         if (order.side === "buy") {
-            const { executedQty, fills, rQuantity } = this.matchBid(order); 
+            const { executedQty, fills, rQuantity } = this.matchBid(order);
             console.log("rQuantity", rQuantity)
             order.filled = executedQty;
             if (executedQty === order.quantity) {
@@ -96,7 +96,7 @@ export class Orderbook {
                     rQuantity
                 }
             }
-           this.insertBid(order)
+            this.insertBid(order)
             return {
                 executedQty,
                 fills,
@@ -105,7 +105,7 @@ export class Orderbook {
         } else {
             console.log(order)
             const { executedQty, fills, rQuantity } = this.matchAsk(order);
-            console.log("ye dekhna", executedQty, fills,order.quantity)
+            console.log("ye dekhna", executedQty, fills, order.quantity)
             order.filled = executedQty;
             if (executedQty === order.quantity) {
                 return {
@@ -123,9 +123,9 @@ export class Orderbook {
         }
     }
 
-    matchBid(order: Order): {fills: Fill[], executedQty: number, rQuantity:number} {
+    matchBid(order: Order): { fills: Fill[], executedQty: number, rQuantity: number } {
         const fills: Fill[] = [];
-       
+
         let executedQty = 0;
         for (let i = 0; i < this.asks.length; i++) {
             console.log("ye wala", order)
@@ -135,7 +135,7 @@ export class Orderbook {
                 executedQty += filledQty;
                 this.asks[i].filled += filledQty;
                 this.asks[i].rQuantity -= filledQty
-                order.rQuantity-=filledQty
+                order.rQuantity -= filledQty
 
                 fills.push({
                     price: this.asks[i].price.toString(),
@@ -148,9 +148,9 @@ export class Orderbook {
             }
         }
         for (let i = 0; i < this.asks.length; i++) {
-             
+
             if (this.asks[i].rQuantity === 0) {
-                
+
                 this.asks.splice(i, 1);
                 i--;
             }
@@ -162,17 +162,17 @@ export class Orderbook {
         };
     }
 
-    matchAsk(order: Order): {fills: Fill[], executedQty: number, rQuantity:number} {
+    matchAsk(order: Order): { fills: Fill[], executedQty: number, rQuantity: number } {
         const fills: Fill[] = [];
         let executedQty = 0;
-        
-        for (let i = this.bids.length-1; i > -1; i--) {
+
+        for (let i = this.bids.length - 1; i > -1; i--) {
             if (this.bids[i].price >= order.price && executedQty < (order.quantity)) {
                 const filledQty = Math.min(order.rQuantity, this.bids[i].rQuantity);
                 executedQty += filledQty;
                 this.bids[i].filled += filledQty;
                 this.bids[i].rQuantity -= filledQty
-                order.rQuantity-=filledQty
+                order.rQuantity -= filledQty
                 fills.push({
                     price: this.bids[i].price.toString(),
                     qty: filledQty,
@@ -192,7 +192,7 @@ export class Orderbook {
         return {
             fills,
             executedQty,
-            rQuantity:order.rQuantity
+            rQuantity: order.rQuantity
         };
     }
 
@@ -201,29 +201,29 @@ export class Orderbook {
         const bids: [string, string][] = [];
         const asks: [string, string][] = [];
 
-        const bidsObj:Map<number ,number> = new Map();
-        const asksObj:Map<number ,number> = new Map();
+        const bidsObj: Map<number, number> = new Map();
+        const asksObj: Map<number, number> = new Map();
 
         for (let i = 0; i < this.bids.length; i++) {
             const order = this.bids[i];
-            const previousQty =  bidsObj.get(order.price) ?? 0 
-            bidsObj.set(order.price,previousQty ===0?  order.rQuantity : order.rQuantity+ previousQty)
+            const previousQty = bidsObj.get(order.price) ?? 0
+            bidsObj.set(order.price, previousQty === 0 ? order.rQuantity : order.rQuantity + previousQty)
         }
 
         for (let i = 0; i < this.asks.length; i++) {
             const order = this.asks[i];
-            const previousQty =  asksObj.get(order.price) ?? 0 
-            asksObj.set(order.price,previousQty ===0?  order.rQuantity : order.rQuantity+ previousQty)
+            const previousQty = asksObj.get(order.price) ?? 0
+            asksObj.set(order.price, previousQty === 0 ? order.rQuantity : order.rQuantity + previousQty)
         }
-        
+
         for (const [price, qty] of bidsObj) {
-            bids.push([price.toString(),qty.toString()])
+            bids.push([price.toString(), qty.toString()])
         }
 
         for (const [price, qty] of asksObj) {
-            asks.push([price.toString(),qty.toString()])
+            asks.push([price.toString(), qty.toString()])
         }
-        
+
         return {
             bids,
             asks
@@ -252,6 +252,10 @@ export class Orderbook {
             this.asks.splice(index, 1);
             return price
         }
+    }
+    updateCurrentPrice(fills: Fill[]) {
+        console.log("here is trhewre fills", fills)
+        this.currentPrice = +fills[fills.length - 1].price
     }
 
 }

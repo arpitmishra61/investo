@@ -1,3 +1,5 @@
+import { CurrentPrice } from './../../../../node_modules/@repo/types/src/trade';
+import { orderBook } from './../../../dashboard/lib/mockData';
 import fs from "fs";
 import { RedisManager } from "../RedisManager";
 import { ORDER_UPDATE, TRADE_ADDED } from "../types/index";
@@ -8,10 +10,10 @@ import {
   GET_OPEN_ORDERS,
   MessageFromApi,
   ON_RAMP,
-  GET_BALANCE
+  GET_BALANCE,
+  GET_CURRENT_PRICE
 } from "../types/fromApi";
 import { Fill, Order, Orderbook } from "./Orderbook";
-import { response } from "express";
 
 //TODO: Avoid floats everywhere, use a decimal similar to the PayTM project for every currency
 export const BASE_CURRENCY = "INR";
@@ -210,23 +212,42 @@ export class Engine {
           });
         }
         break;
-    
+
       case GET_BALANCE: {
         try {
           const { userId } = message.data
           console.log("reachumngh erher", userId)
           const userBalance = this.balances.get(userId);
           console.log("baa", userBalance)
-           RedisManager.getInstance().sendToApi(clientId, {
+          RedisManager.getInstance().sendToApi(clientId, {
             type: "BALANCE",
-            payload: userBalance as unknown as Record <"available" | "locked", number>
+            payload: userBalance as unknown as Record<"available" | "locked", number>
           });
 
         }
         catch (err) {
           console.log("Fetching balance error", err)
         }
-      
+
+      }
+        break;
+      case GET_CURRENT_PRICE: {
+        try {
+          const { market } = message.data
+
+          const orderbook = this.orderbooks.find((o) => o.ticker() === market);
+console.log("FsdfgsgsG",orderbook?.currentPrice)
+          RedisManager.getInstance().sendToApi(clientId, {
+            type: "CURRENT_BALANCE",
+            payload: { currentPrice:orderbook?.currentPrice ?? 0
+          }
+          });
+
+        }
+        catch (err) {
+          console.log("Fetching balance error", err)
+        }
+
       }
         break;
     }
@@ -277,12 +298,16 @@ export class Engine {
 
     const { fills, executedQty, rQuantity } = orderbook.addOrder(order);
     console.log("rQuantity---", rQuantity)
+    if (fills.length) {
+      orderbook.updateCurrentPrice(fills)
+    }
     this.updateBalance(userId, baseAsset, quoteAsset, side, fills, executedQty);
-
     this.createDbTrades(fills, market, userId);
     this.updateDbOrders(order, executedQty, fills, market);
     this.publisWsDepthUpdates(fills, price, side, market);
     this.publishWsTrades(fills, userId, market);
+    this.publishBalanceUpdate(userId)
+    this.publishCurrentPriceUpdate(orderbook.currentPrice, market)
     return { executedQty, fills, orderId: order.orderId, rQuantity };
   }
 
@@ -369,14 +394,14 @@ export class Engine {
       },
     });
   }
-  fillsNotPresentInAsks( fills: Fill[], asks:[string,string][]): Fill[] {
-    return fills.filter(fill=> asks.filter(ask=>ask[0]===fill.price).length==0)
-  
+  fillsNotPresentInAsks(fills: Fill[], asks: [string, string][]): Fill[] {
+    return fills.filter(fill => asks.filter(ask => ask[0] === fill.price).length == 0)
+
   }
-  fillsNotPresentInBids(fills: Fill[], bids:[string,string][]): Fill[] {
-    return fills.filter(fill=> bids.filter(bid=>bid[0]===fill.price).length==0)
-  
-}
+  fillsNotPresentInBids(fills: Fill[], bids: [string, string][]): Fill[] {
+    return fills.filter(fill => bids.filter(bid => bid[0] === fill.price).length == 0)
+
+  }
   publisWsDepthUpdates(
     fills: Fill[],
     price: string,
@@ -393,17 +418,17 @@ export class Engine {
       const updatedAsks = depth?.asks.filter((x) =>
         fills.map((f) => f.price).includes(x[0].toString())
       );
-      const completeFills : Fill[] = this.fillsNotPresentInAsks(fills,depth?.asks)
+      const completeFills: Fill[] = this.fillsNotPresentInAsks(fills, depth?.asks)
       let completedAsks: [string, string][] = completeFills.map(fill => [`${fill.price}`, '0'])
       //remove duplicates 
-      completedAsks= [...new Map(completedAsks.map(x => [x[0], x])).values()]
+      completedAsks = [...new Map(completedAsks.map(x => [x[0], x])).values()]
 
       console.log("completedAsks", completedAsks)
       updatedAsks.push(...completedAsks)
-      
-  
+
+
       const updatedBid = depth?.bids.find((x) => x[0] === price);
-      console.log("publish ws depth updates",updatedBid,updatedAsks);
+      console.log("publish ws depth updates", updatedBid, updatedAsks);
       RedisManager.getInstance().publishMessage(`depth@${market}`, {
         stream: `depth@${market}`,
         data: {
@@ -417,14 +442,14 @@ export class Engine {
       const updatedBids = depth?.bids.filter((x) =>
         fills.map((f) => f.price).includes(x[0].toString())
       );
-      
+
       const updatedAsk = depth?.asks.find((x) => x[0] === price);
-      const completeFills : Fill[] = this.fillsNotPresentInBids(fills,depth?.bids)
+      const completeFills: Fill[] = this.fillsNotPresentInBids(fills, depth?.bids)
       let completedBids: [string, string][] = completeFills.map(fill => [`${fill.price}`, '0'])
-      completedBids= [...new Map(completedBids.map(x => [x[0], x])).values()]
-     
+      completedBids = [...new Map(completedBids.map(x => [x[0], x])).values()]
+
       updatedBids.push(...completedBids)
-      console.log("publish ws depth updates",updatedBids, updatedAsk);
+      console.log("publish ws depth updates", updatedBids, updatedAsk);
       RedisManager.getInstance().publishMessage(`depth@${market}`, {
         stream: `depth@${market}`,
         data: {
@@ -435,6 +460,27 @@ export class Engine {
       });
     }
   }
+  publishBalanceUpdate(userId: string) {
+    const balances = this.balances.get(userId)
+
+    RedisManager.getInstance().publishMessage(`balance@${userId}`, {
+      stream: `depth@${userId}`,
+      data: {
+        e: "balance",
+        b: balances
+      },
+    });
+  }
+  publishCurrentPriceUpdate(price: number, market: string) {
+    RedisManager.getInstance().publishMessage(`current_price@${market}`, {
+      stream: `current_price@${market}`,
+      data: {
+        e: "current_price",
+        p: price
+      },
+    })
+  }
+
 
   updateBalance(
     userId: string,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,16 +8,40 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import axios from "axios"
 import { toast } from "sonner"
 import { Spinner } from "@/components/ui/spinner";
+import { Loader } from "lucide-react";
+import { SignalingManager } from "@/lib/SignalManager";
 enum Execute {
     DONE = "DONE",
     PENDING = "PENDING"
 }
+type Balance = {
+    available: number;
+    locked: number;
+};
+
+type AccountBalances = {
+    INR: Balance;
+    TATA: Balance;
+};
 export function TradingOrderForm() {
     const [side, setSide] = useState<"buy" | "sell">("buy");
     const [orderType, setOrderType] = useState<"limit" | "market" | "conditional">("limit");
     const [price, setPrice] = useState("87547.5");
     const [quantity, setQuantity] = useState("0");
     const [execute, setExecute] = useState<Execute>(Execute.DONE);
+    const [balance, setBalance] = useState<AccountBalances | null>(null);
+
+
+    useEffect(() => {
+        axios.get<AccountBalances>("http://localhost:8000/api/v1/balance?userId=5").then(res => {
+            setBalance(res.data)
+        })
+        SignalingManager.getInstance().sendMessage({ "method": "SUBSCRIBE", "params": [`balance@5`] });
+        SignalingManager.getInstance().registerCallback("balance", (updatedBalance: AccountBalances) => {
+            console.log(updatedBalance)
+            setBalance(updatedBalance)
+        }, `BALANCE-${5}`);
+    }, [])
 
 
 
@@ -58,7 +82,7 @@ export function TradingOrderForm() {
             </Tabs>
 
             {/* Available Equity */}
-            <div className="text-xs text-zinc-500">Available Money $0.00</div>
+            <div className="text-xs text-zinc-500">Available Money INR {balance ? balance.INR.available : <Loader />}</div>
             <div className="flex gap-2">
                 {/* Price Input */}
                 <div>

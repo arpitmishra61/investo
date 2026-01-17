@@ -1,41 +1,70 @@
-import { TopBar } from "@/app/components/Topbar";
-import { OrderBook } from "@/app/components/orderBook";
-import { PriceChart } from "@/app/components/chart/priceChart";
+"use client"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Sparkline } from "./components/sparkline";
+import { markets } from "@/lib/market";
 import { Logo } from "./components/Logo";
-import { TradingOrderForm } from "./components/TradeBox";
-import { ChartCandlestick, UserCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
-Button
-export default function Page() {
+import { redirect } from "next/navigation";
+
+export default function MarketsTable() {
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex justify-between">
-        <Logo />
-        <div className="flex gap-4 items-center">
+    <div className="rounded-xl border bg-background p-4 max-w-[800] m-auto mt-6">
+      <Logo />
+      <Table className="mt-4">
+        <TableHeader>
+          <TableRow className="text-muted-foreground">
+            <TableHead>Name</TableHead>
+            <TableHead>Price</TableHead>
+            <TableHead>24h Volume</TableHead>
+            <TableHead>Open Interest</TableHead>
+            <TableHead>24h Change</TableHead>
+            <TableHead className="text-right">Last 7 Days</TableHead>
+          </TableRow>
+        </TableHeader>
 
-          <Link href="/orders" className="inline-flex items-center gap-2 rounded-md border bg-grey border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300 transition">
-            <ChartCandlestick /> Open Orders
-          </Link>
-          <UserCircle />
+        <TableBody>
+          {markets.map((m) => (
+            <TableRow key={m.symbol} onClick={() => {
+              redirect("/dashboard/tata")
 
-        </div>
+            }}>
+              <TableCell className="flex items-center gap-3">
+                <span className="text-xl">{m.icon}</span>
+                <span className="font-medium">{m.symbol}</span>
+              </TableCell>
 
-      </div>
+              <TableCell className="font-semibold">
+                ${m.price.toLocaleString()}
+              </TableCell>
 
-      {/* <TopBar /> */}
+              <TableCell>{m.volume24h}</TableCell>
 
-      <div className="grid grid-cols-12 gap-4">
-        <div className="col-span-6">
-          <PriceChart />
-        </div>
-        <div className="col-span-3">
-          <OrderBook />
-        </div>
-        <div className="col-span-3">
-          <TradingOrderForm />
-        </div>
-      </div>
+              <TableCell>{m.openInterest}</TableCell>
+
+              <TableCell
+                className={
+                  m.change24h < 0 ? "text-red-500" : "text-green-500"
+                }
+              >
+                {m.change24h}%
+              </TableCell>
+
+              <TableCell className="flex justify-end">
+                <Sparkline
+                  data={m.sparkline}
+                  negative={m.change24h < 0}
+                />
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }

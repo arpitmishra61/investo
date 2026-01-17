@@ -37,4 +37,7 @@ export type MessageToApi = {
 }| {
     type: "BALANCE",
     payload: Record <"available" | "locked", number>
+} |{
+    type: "CURRENT_BALANCE",
+    payload: {currentPrice:number}
 }

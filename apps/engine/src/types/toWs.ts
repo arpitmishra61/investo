@@ -36,4 +36,20 @@ export type TradeAddedMessage = {
     }
 }
 
-export type WsMessage = TickerUpdateMessage | DepthUpdateMessage | TradeAddedMessage;
+export type BalanceMessage = {
+    stream: string,
+    data: {
+        e: "balance",
+        b:any
+    }
+}
+
+export type PriceMessage = {
+    stream: string,
+    data: {
+        e: "price",
+        p:number
+    }
+}
+
+export type WsMessage = TickerUpdateMessage | DepthUpdateMessage | TradeAddedMessage | BalanceMessage | PriceMessage;

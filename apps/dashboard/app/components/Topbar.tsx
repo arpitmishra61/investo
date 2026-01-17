@@ -12,10 +12,13 @@ import axios from "axios";
 import { SignalingManager } from "./../../lib/SignalManager"
 
 const BASE_URL = "http://localhost:8000";
+
 const getTicker = async (symbol: string): Promise<Ticker> => {
     const res = await axios.get(`${BASE_URL}/api/v1/tickers/?symbol=${symbol}`)
-    return res.data
+
+    return res.data.result
 }
+
 export function TopBar() {
 
     const [ticker, setTicker] = useState<Ticker | null>()
@@ -23,15 +26,13 @@ export function TopBar() {
     useEffect(() => {
         getTicker(market).then(setTicker);
         SignalingManager.getInstance().registerCallback("ticker", (data: Omit<Ticker, "trades">) => setTicker(prevTicker => ({
-            firstPrice: data?.firstPrice ?? prevTicker?.firstPrice ?? '',
-            high: data?.high ?? prevTicker?.high ?? '',
-            lastPrice: data?.lastPrice ?? prevTicker?.lastPrice ?? '',
-            low: data?.low ?? prevTicker?.low ?? '',
-            priceChange: data?.priceChange ?? prevTicker?.priceChange ?? '',
-            priceChangePercent: data?.priceChangePercent ?? prevTicker?.priceChangePercent ?? '',
-            quoteVolume: data?.quoteVolume ?? prevTicker?.quoteVolume ?? '',
-            symbol: data?.symbol ?? prevTicker?.symbol ?? '',
-            volume: data?.volume ?? prevTicker?.volume ?? '',
+            lastPrice: data.lastPrice,
+            low24h: data.low24h,
+            high24h: data.high24h,
+            volume24h: data.volume24h,
+            open24h: data.open24h,
+            priceChange24h: data.priceChange24h,
+            priceChangePercent24h: data.high24h,
         })), `TICKER-${market}`);
         SignalingManager.getInstance().sendMessage({ "method": "SUBSCRIBE", "params": [`ticker.${market}`] });
 
@@ -51,8 +52,8 @@ export function TopBar() {
                 <div className="flex gap-8">
                     <Bitcoin />
                     <>
-                        <h1 className="text-xl font-semibold">{ticker.symbol}</h1>
-                        <p className={`text-2xl font-bold ${+ticker.priceChange >= 0 ? "text-green-600" : "text-red-600"}`}>
+                        <h1 className="text-xl font-semibold">{"TATA_INR"}</h1>
+                        <p className={`text-2xl font-bold ${+ticker.priceChange24h >= 0 ? "text-green-600" : "text-red-600"}`}>
                             ${ticker.lastPrice.toLocaleString()}
                         </p>
                     </>
@@ -60,9 +61,11 @@ export function TopBar() {
 
                 {/* Right side: stats */}
                 <div className="flex gap-8 text-sm">
-                    <Stat label="24h Chg" value={`${ticker.priceChangePercent}%`} Icon={DecimalsArrowLeftIcon} />
-                    <Stat label="Volume" value={`$${ticker.volume.toLocaleString()}`} Icon={FilesIcon} />
-                    <Stat label="24h Low" value={ticker.low} Icon={PercentCircle} />
+                    <Stat label="24h Chg" value={`${ticker.priceChangePercent24h}%`} Icon={DecimalsArrowLeftIcon} />
+                    <Stat label="Volume" value={`$${ticker.volume24h.toLocaleString()}`} Icon={FilesIcon} />
+                    <Stat label="24h Low" value={ticker.low24h} Icon={PercentCircle} />
+
+                    <Stat label="24h High" value={ticker.high24h} Icon={PercentCircle} />
 
                 </div>
             </Card>
