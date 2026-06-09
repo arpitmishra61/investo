@@ -13,7 +13,7 @@ import axios from "axios";
 
 export function PriceChart() {
     const ref = useRef<HTMLDivElement>(null);
-    const [tf, setTf] = useState<"1s" | "1m">("1m");
+    const [tf, setTf] = useState<"1h" | "1m">("1m");
 
     useEffect(() => {
         if (!ref.current) return;
@@ -30,6 +30,8 @@ export function PriceChart() {
                 vertLines: { color: "#eee" },
                 horzLines: { color: "#eee" },
             },
+
+
         });
 
         const series = chart.addSeries(CandlestickSeries, {
@@ -39,15 +41,31 @@ export function PriceChart() {
             wickUpColor: "#22c55e",
             wickDownColor: "#ef4444",
         });
-        const currentTime = Date.now()
-        const startTime = currentTime - 172800000
-        const endTime = currentTime
-        axios.get(`http://localhost:8000/api/v1/klines?symbol=TATA_INR&interval=1m&endTime=${endTime}&startTime=${startTime}`).then(res => {
-            series.setData(res.data);
-            chart.timeScale().fitContent();
-        })
+        chart.applyOptions({
+            timeScale: {
+                timeVisible: true,
 
-        return () => chart.remove();
+                secondsVisible: false,
+            },
+        });
+        const interval = setInterval(() => {
+            const currentTime = Date.now()
+            //const day = 10 * 24 * 60 * 60 * 10
+            const startTime = 1767020774440
+            const endTime = currentTime
+            axios.get(`http://localhost:8000/api/v1/klines?symbol=TATA_INR&interval=${tf}&endTime=${endTime}&startTime=${startTime}`).then(res => {
+                series.setData(res.data);
+                chart.timeScale().fitContent();
+            })
+
+        }, 2000)
+
+
+        return () => {
+            clearInterval(interval)
+            chart.remove()
+
+        }
     }, [tf]);
 
     return (

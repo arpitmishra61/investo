@@ -7,18 +7,18 @@ async function main() {
   const redisClient = createClient();
   await redisClient.connect();
   console.log("connected to redis");
-  type responseType= {
+  type responseType = {
     message: MessageFromApi;
     clientId: string;
-  }
+  };
   while (true) {
     const messageFromRedis = await redisClient.rPop("messages" as string);
     if (!messageFromRedis) {
     } else {
-      const response = JSON.parse(messageFromRedis) as responseType
-      console.log(response)
+      const response = JSON.parse(messageFromRedis) as responseType;
+      console.log(response);
       if (response.message.type === CREATE_ORDER) {
-        response.message.data.timeStamp = Date.now()
+        response.message.data.timeStamp = Date.now();
       }
       engine.process(response);
     }

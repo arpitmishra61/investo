@@ -22,4 +22,4 @@ refreshViews().catch(console.error);
 
 setInterval(() => {
   refreshViews();
-}, 1000 * 10);
+}, 1000 * 5);

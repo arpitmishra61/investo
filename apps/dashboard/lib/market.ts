@@ -1,18 +1,18 @@
-
 export type MarketRow = {
   symbol: string;
   name: string;
-  price: number;
+  lastPrice: number;
+  open24h: string;
   volume24h: string;
-  openInterest: string;
-  change24h: number;
+  priceChange24h: number;
   sparkline: number[];
+  priceChangePercent24h: number;
   icon: string;
 };
 export const markets: MarketRow[] = [
   {
-    symbol: "BTC-PERP",
-    name: "Bitcoin",
+    symbol: "TATA-INR",
+    name: "TATA",
     price: 90473.1,
     volume24h: "$505.8M",
     openInterest: "$120.3M",

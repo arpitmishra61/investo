@@ -59,9 +59,7 @@ SELECT
   (SELECT price FROM trades_24h ORDER BY time ASC LIMIT 1) AS open24h
 FROM trades_24h;
 `;
-
   const result = await pgClient.query(query, ["$"]);
-
   const row: TickerDBRow = result.rows[0];
 
   const last = Number(row.last_price);
@@ -78,6 +76,12 @@ FROM trades_24h;
   };
 
   res.json({ result: response });
+  // RedisManager.getInstance().sendToWs({
+  //   type: "CREATE_TICKER_WS",
+  //   data: {
+  //     market: market as unknown as string,
+  //   },
+  // });
 });
 
 tickersRouter.get("/current_price", async (req, res) => {

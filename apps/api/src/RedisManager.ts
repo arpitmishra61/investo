@@ -1,6 +1,6 @@
 import { RedisClientType, createClient } from "redis";
 import { MessageFromOrderbook } from "./types";
-import { MessageToEngine } from "./types/to";
+import { MessageToEngine, MessageToWs } from "./types/to";
 
 export class RedisManager {
   private client: RedisClientType;
@@ -31,9 +31,23 @@ export class RedisManager {
       console.log(message);
       this.publisher.lPush(
         "messages",
-        JSON.stringify({ clientId: id, message })
+        JSON.stringify({ clientId: id, message }),
       );
     });
+  }
+  public sendToWs(message: MessageToWs) {
+    const id = this.getRandomClientId();
+    let interval: any;
+    this.client.subscribe(id, (message) => {
+      this.client.unsubscribe(id);
+      clearInterval(interval);
+    });
+    interval = setInterval(() => {
+      this.publisher.lPush(
+        "messages",
+        JSON.stringify({ clientId: id, message }),
+      );
+    }, 5000);
   }
 
   public getRandomClientId() {

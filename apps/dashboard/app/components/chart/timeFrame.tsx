@@ -6,17 +6,17 @@ export function TimeframeSwitch({
     value,
     onChange,
 }: {
-    value: "1s" | "1m";
-    onChange: (v: "1s" | "1m") => void;
+    value: "1h" | "1m";
+    onChange: (v: "1h" | "1m") => void;
 }) {
     return (
         <div className="flex gap-2 mb-2">
             <Button
                 size="sm"
-                variant={value === "1s" ? "default" : "outline"}
-                onClick={() => onChange("1s")}
+                variant={value === "1h" ? "default" : "outline"}
+                onClick={() => onChange("1h")}
             >
-                1s
+                1h
             </Button>
             <Button
                 size="sm"

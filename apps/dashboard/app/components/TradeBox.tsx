@@ -82,7 +82,7 @@ export function TradingOrderForm() {
             </Tabs>
 
             {/* Available Equity */}
-            <div className="text-xs text-zinc-500">Available Money INR {balance ? balance.INR.available : <Loader />}</div>
+            <div className="text-xs text-zinc-500">Available Money INR {balance ? balance.INR.available.toPrecision(9) : <Loader />}</div>
             <div className="flex gap-2">
                 {/* Price Input */}
                 <div>
@@ -123,7 +123,7 @@ export function TradingOrderForm() {
             {/* Order Value */}
             <Label className="text-zinc-400 text-xs">Order Value</Label>
             <div className="flex items-center bg-zinc-900 rounded-md px-3 py-2">
-                <span className="text-white">${orderValue.toFixed(2)}</span>
+                <span className="text-white">₹{orderValue.toFixed(2)}</span>
             </div>
             {/* Button */}
             <Input
