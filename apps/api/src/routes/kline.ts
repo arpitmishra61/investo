@@ -18,7 +18,6 @@ export const klineRouter = Router();
 
 klineRouter.get("/", async (req, res) => {
   const { market, interval, startTime, endTime } = req.query as any;
-  console.log("here ", interval);
   let query;
   if (["1m", "1h"].includes(interval)) {
     query = `SELECT * FROM klines_${interval} WHERE bucket >= $1 AND bucket <= $2 ORDER BY bucket ASC`;
