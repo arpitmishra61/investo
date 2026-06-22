@@ -1,6 +1,5 @@
 "use client";
 import { Card } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { OrderBookEntry, OrderBookResponse, OrderBookClient } from "@repo/types/depth";
@@ -163,82 +162,75 @@ export function OrderBook({ symbol = "TATA_INR" }: { symbol: string }) {
   }, [symbol])
   const tradesToRender = [...trades.data].reverse()
   return (
-    <Card className="p-4 h-full">
+    <Card className="p-4 h-full border-zinc-200 shadow-md">
       <Tabs defaultValue="orderbook" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 bg-muted">
-          <TabsTrigger value="orderbook">Orderbook</TabsTrigger>
-          <TabsTrigger value="trades">Trades</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2 bg-zinc-100 p-1 rounded-lg">
+          <TabsTrigger value="orderbook" className="rounded-md data-[state=active]:shadow-sm">Orderbook</TabsTrigger>
+          <TabsTrigger value="trades" className="rounded-md data-[state=active]:shadow-sm">Trades</TabsTrigger>
         </TabsList>
         <TabsContent value="orderbook" className="mt-4">
           <div className="text-sm">
             {/* Asks */}
-            <div className="flex justify-between bg-red mb-3">
+            <div className="flex justify-between text-xs text-muted-foreground font-medium mb-2 px-1">
               <p>Price</p>
               <p>Qty</p>
               <p>Total</p>
             </div>
-            <div>
+            <div className="max-h-48 overflow-y-auto rounded-md bg-red-50/40 glass-scroll">
               {depth.loading
                 ? <Loader message="Fetching asks.." />
                 : depth?.data?.asks.map((ask, i) => (
-                  <>
-                    <Row
-                      key={i}
-                      price={+ask[0]}
-                      amount={+ask[1]}
-                      qty={ask[2]}
-                      color="red"
-                    />
-                    <Separator />
-                  </>
+                  <Row
+                    key={i}
+                    price={+ask[0]}
+                    amount={+ask[1]}
+                    qty={ask[2]}
+                    color="red"
+                  />
                 ))}
             </div>
-            <strong className="mt-2">{currentPriceData && currentPriceData.currentPrice}</strong>
+            <div className="flex items-center justify-center my-2 py-2 rounded-md bg-zinc-50 border border-zinc-100">
+              <strong className="text-base">{currentPriceData && currentPriceData.currentPrice}</strong>
+            </div>
             {/* Bids */}
-            <div className="mt-1">
+            <div className="max-h-48 overflow-y-auto rounded-md bg-green-50/40 glass-scroll">
               {depth.loading
                 ? <Loader message="Fetching bids.." />
                 : depth.data?.bids.map((bid, i) => (
-                  <>
-                    <Row
-                      key={i}
-                      price={+bid[0]}
-                      amount={+bid[1]}
-                      color="green"
-                      qty={bid[2]}
-                    />
-                    <Separator />
-                  </>
+                  <Row
+                    key={i}
+                    price={+bid[0]}
+                    amount={+bid[1]}
+                    color="green"
+                    qty={bid[2]}
+                  />
                 ))}
             </div>
           </div>
         </TabsContent>
-        <TabsContent value="trades">
-          <div className="flex justify-between bg-red mb-3">
+        <TabsContent value="trades" className="mt-4">
+          <div className="flex justify-between text-xs text-muted-foreground font-medium mb-2 px-1">
             <p>Price</p>
             <p>Qty</p>
             <p>Time</p>
 
           </div>
-          <div>
+          <div className="max-h-96 overflow-y-auto rounded-md glass-scroll">
             {trades.loading
               ? <Loader message="Fetching Trades.." />
               : tradesToRender.map((trade, i) => (
-                <>
-                  <Row
-                    key={i}
-                    price={+trade.price}
-                    time={new Date(trade.time).toLocaleTimeString("en-IN", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                      second: "2-digit",
-                      hour12: false
-                    })}
-                    qty={trade.qty}
-                    color={trade.side === "buy" ? "green" : "red"}
-                  />
-                  <Separator />
-                </>
+                <Row
+                  key={i}
+                  price={+trade.price}
+                  time={new Date(trade.time).toLocaleTimeString("en-IN", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit",
+                    hour12: false
+                  })}
+                  qty={trade.qty}
+                  color={trade.side === "buy" ? "green" : "red"}
+                />
               ))}
           </div>
         </TabsContent>
@@ -261,13 +253,13 @@ function Row({
   time?: string
 }) {
   return (
-    <div className="flex justify-between">
+    <div className="flex justify-between items-center px-1.5 py-1 text-sm hover:bg-zinc-100/60 rounded-sm transition-colors">
       <strong className={color === "green" ? "text-green-600" : "text-red-600"}>
         {price.toLocaleString()}
       </strong>
-      {amount && <span>{amount}</span>}
-      <span>{qty}</span>
-      {time && <span>{time}</span>}
+      {amount && <span className="text-zinc-600">{amount}</span>}
+      <span className="text-zinc-600">{qty}</span>
+      {time && <span className="text-zinc-500 text-xs">{time}</span>}
 
     </div>
   );

@@ -21,7 +21,11 @@ export function PriceChart() {
 
         const chart = createChart(ref.current, {
             height: 400,
-            width: 700,
+            width: ref.current.clientWidth,
+            autoSize: true,
+            timeScale: {
+                barSpacing: 5,
+            },
             layout: {
                 background: { type: ColorType.Solid, color: "#ffffff" },
                 textColor: "#111",
@@ -54,7 +58,10 @@ export function PriceChart() {
             const startTime = 1767020774440
             const endTime = currentTime
             axios.get(`http://localhost:8000/api/v1/klines?symbol=TATA_INR&interval=${tf}&endTime=${endTime}&startTime=${startTime}`).then(res => {
-                series.setData(res.data);
+                const recent = res.data.slice(-10);
+
+                series.setData(recent);
+
                 chart.timeScale().fitContent();
             })
 
@@ -69,9 +76,14 @@ export function PriceChart() {
     }, [tf]);
 
     return (
-        <Card className="p-4">
-            <TimeframeSwitch value={tf} onChange={setTf} />
-            <div ref={ref} />
+        <Card className="p-4 border-zinc-200 shadow-md h-full">
+            <div className="flex items-center justify-between mb-2">
+                <h2 className="text-sm font-semibold text-zinc-700">Price Chart</h2>
+                <TimeframeSwitch value={tf} onChange={setTf} />
+            </div>
+            <div className="rounded-lg overflow-hidden border border-zinc-100">
+                <div ref={ref} />
+            </div>
         </Card>
     );
 }

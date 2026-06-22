@@ -23,20 +23,30 @@ async function main() {
 
   while (true) {
     const response = await redisClient.rPop("db_processor" as string);
-    
+
     if (!response) {
     } else {
-      console.log("response", response)
+      console.log("response", response);
       const res: DbMessage = JSON.parse(response);
       if (res.type === "TRADE_ADDED") {
         console.log("adding res");
         console.log(res);
-        const { price, quantity, timestamp, isBuyerMaker } = res.data
-        console.log(isBuyerMaker)
-        const query = "INSERT INTO tata_prices (time, price,qty,currency_code,side) VALUES (to_timestamp($1), $2,$3,$4, $5)";
+        const { price, quantity, timestamp, isBuyerMaker } = res.data;
+        console.log(isBuyerMaker);
+        const query =
+          "INSERT INTO tata_prices (time, price,qty,currency_code,side) VALUES (to_timestamp($1), $2,$3,$4, $5)";
         // TODO: How to add volume?
-        const values = [ timestamp/1000.0, price,quantity,'$', isBuyerMaker? "buy":"sell"];
-        await pgClient.query(query, values);
+        const values = [
+          timestamp / 1000.0,
+          price,
+          quantity,
+          "$",
+          isBuyerMaker ? "buy" : "sell",
+        ];
+        await pgClient
+          .query(query, values)
+          .then(console.log)
+          .catch(console.log);
       }
     }
   }

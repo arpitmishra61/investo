@@ -27,8 +27,9 @@ export default function MarketsTable() {
     })
   }, [])
   return (
-    <div className="rounded-xl border bg-background p-4 max-w-[800] m-auto mt-6">
+    <div className="rounded-xl border bg-background p-4 max-w-[800px] m-auto mt-6 mx-3 sm:mx-auto">
       <Logo />
+      <div className="overflow-x-auto">
       <Table className="mt-4">
         <TableHeader>
           <TableRow className="text-muted-foreground">
@@ -79,6 +80,7 @@ export default function MarketsTable() {
           ))}
         </TableBody>
       </Table>
+      </div>
     </div>
   );
 }

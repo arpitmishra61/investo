@@ -40,7 +40,7 @@ export default function OpenOrdersTable() {
 
     return (
 
-        <Card className="max-w-200 m-auto p-4 mt-6">
+        <Card className="max-w-200 m-auto p-4 mt-6 mx-3 sm:mx-auto">
             <Tabs value={orderType} onValueChange={setOrderType} className="mb-6">
                 <TabsList className="bg-zinc-100 rounded-md p-1 text-sm font-semibold w-full">
                     <TabsTrigger value="open" className={`px-4 py-2 rounded-md ${orderType === "open" ? 'bg-zinc-800 text-white' : 'text-black'}`}>
@@ -53,7 +53,7 @@ export default function OpenOrdersTable() {
 
 
 
-                <TabsContent value="open">
+                <TabsContent value="open" className="overflow-x-auto">
                     <Table>
                         <TableHeader>
                             <TableRow>
@@ -114,7 +114,7 @@ export default function OpenOrdersTable() {
 
                 </TabsContent>
 
-                <TabsContent value="executed">
+                <TabsContent value="executed" className="overflow-x-auto">
                     <Table>
                         <TableHeader>
                             <TableRow>

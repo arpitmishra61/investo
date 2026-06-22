@@ -1,25 +1,25 @@
 import axios from "axios";
 
 const BASE_URL = "http://localhost:8000";
-const TOTAL_BIDS = 15;
-const TOTAL_ASK = 15;
+const TOTAL_BIDS = 1;
+const TOTAL_ASK = 1;
 const MARKET = "TATA_INR";
 const USER_ID = "5";
 
 async function main() {
   const price = 1000 + Math.random() * 10;
-  const openOrders = { data: [{}] };
+  // const openOrders = { data: [{}] };
 
-  const totalBids = openOrders.data.filter((o: any) => o.side === "buy").length;
-  const totalAsks = openOrders.data.filter(
-    (o: any) => o.side === "sell"
-  ).length;
+  // const totalBids = openOrders.data.filter((o: any) => o.side === "buy").length;
+  // const totalAsks = openOrders.data.filter(
+  //   (o: any) => o.side === "sell",
+  // ).length;
 
-  const cancelledBids = await cancelBidsMoreThan(openOrders.data, price);
-  const cancelledAsks = await cancelAsksLessThan(openOrders.data, price);
+  // const cancelledBids = await cancelBidsMoreThan(openOrders.data, price);
+  // const cancelledAsks = await cancelAsksLessThan(openOrders.data, price);
 
-  let bidsToAdd = TOTAL_BIDS - totalBids - cancelledBids;
-  let asksToAdd = TOTAL_ASK - totalAsks - cancelledAsks;
+  let bidsToAdd = TOTAL_BIDS;
+  let asksToAdd = TOTAL_ASK;
 
   while (bidsToAdd > 0 || asksToAdd > 0) {
     if (bidsToAdd > 0) {
@@ -44,7 +44,6 @@ async function main() {
       asksToAdd--;
     }
   }
-  console.log("reaching here");
   await new Promise((resolve) => setTimeout(resolve, 1000));
 }
 
@@ -58,7 +57,7 @@ async function cancelBidsMoreThan(openOrders: any[], price: number) {
             orderId: o.orderId,
             market: MARKET,
           },
-        })
+        }),
       );
     }
   });
@@ -76,7 +75,7 @@ async function cancelAsksLessThan(openOrders: any[], price: number) {
             orderId: o.orderId,
             market: MARKET,
           },
-        })
+        }),
       );
     }
   });

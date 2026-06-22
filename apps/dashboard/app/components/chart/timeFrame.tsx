@@ -10,7 +10,7 @@ export function TimeframeSwitch({
     onChange: (v: "1h" | "1m") => void;
 }) {
     return (
-        <div className="flex gap-2 mb-2">
+        <div className="flex gap-2">
             <Button
                 size="sm"
                 variant={value === "1h" ? "default" : "outline"}
