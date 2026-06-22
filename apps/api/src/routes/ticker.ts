@@ -2,7 +2,7 @@ import { Router } from "express";
 import { RedisManager } from "../RedisManager";
 import { GET_CURRENT_PRICE } from "../types/index";
 import "dotenv/config";
-import { Client } from "pg";
+import { prisma } from "@repo/database";
 
 export const tradesRouter = Router();
 export type TickerDBRow = {
@@ -22,33 +22,22 @@ export type TickerResponse = {
   priceChange24h: number;
   priceChangePercent24h: number;
 };
-const pgClient = new Client({
-  connectionString: process.env.DATABASE_URL,
-});
-pgClient
-  .connect()
-  .then(() => {
-    console.log("connected to db ticker");
-  })
-  .catch((err) => {
-    console.log("err ", err);
-  });
 export const tickersRouter = Router();
 
 tickersRouter.get("/", async (req, res) => {
   const { market } = req.query;
-  const query = `
+  const rows = await prisma.$queryRaw<TickerDBRow[]>`
 WITH last_trade AS (
   SELECT price
   FROM tata_prices
-  WHERE currency_code = $1
+  WHERE currency_code = ${"$"}
   ORDER BY time DESC
   LIMIT 1
 ),
 trades_24h AS (
   SELECT price, qty, time
   FROM tata_prices
-  WHERE currency_code = $1
+  WHERE currency_code = ${"$"}
     AND time >= now() - interval '24 hours'
 )
 SELECT
@@ -59,8 +48,7 @@ SELECT
   (SELECT price FROM trades_24h ORDER BY time ASC LIMIT 1) AS open24h
 FROM trades_24h;
 `;
-  const result = await pgClient.query(query, ["$"]);
-  const row: TickerDBRow = result.rows[0];
+  const row = rows[0];
 
   const last = Number(row.last_price);
   const open = Number(row.open24h ?? row.last_price);

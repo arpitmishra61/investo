@@ -1,0 +1,22 @@
+{
+  "name": "@repo/database",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "main": "./src/client.ts",
+  "types": "./src/client.ts",
+  "exports": {
+    ".": "./src/client.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "generate": "prisma generate",
+    "db:pull": "prisma db pull"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.3.1"
+  },
+  "devDependencies": {
+    "prisma": "^6.3.1"
+  }
+}

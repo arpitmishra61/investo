@@ -1,20 +1,7 @@
-import { Client } from "pg";
 import { createClient } from "redis";
+import { prisma } from "@repo/database";
 import { DbMessage } from "./types";
 import "dotenv/config";
-
-console.log(process.env.DATABASE_URL);
-const pgClient = new Client({
-  connectionString: process.env.DATABASE_URL,
-});
-pgClient
-  .connect()
-  .then(() => {
-    console.log("connected to db");
-  })
-  .catch((err) => {
-    console.log("err ", err);
-  });
 
 async function main() {
   const redisClient = createClient();
@@ -33,18 +20,17 @@ async function main() {
         console.log(res);
         const { price, quantity, timestamp, isBuyerMaker } = res.data;
         console.log(isBuyerMaker);
-        const query =
-          "INSERT INTO tata_prices (time, price,qty,currency_code,side) VALUES (to_timestamp($1), $2,$3,$4, $5)";
         // TODO: How to add volume?
-        const values = [
-          timestamp / 1000.0,
-          price,
-          quantity,
-          "$",
-          isBuyerMaker ? "buy" : "sell",
-        ];
-        await pgClient
-          .query(query, values)
+        await prisma.tataPrice
+          .create({
+            data: {
+              time: new Date(timestamp),
+              price: parseFloat(price),
+              qty: quantity,
+              currencyCode: "$",
+              side: isBuyerMaker ? "buy" : "sell",
+            },
+          })
           .then(console.log)
           .catch(console.log);
       }

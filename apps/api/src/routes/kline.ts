@@ -1,48 +1,33 @@
-import { Client } from "pg";
 import { Router } from "express";
-import { RedisManager } from "../RedisManager";
+import { prisma } from "@repo/database";
 import "dotenv/config";
 
-const pgClient = new Client({
-  connectionString: process.env.DATABASE_URL,
-});
-pgClient
-  .connect()
-  .then(() => {
-    console.log("api connected to db");
-  })
-  .catch((err) => {
-    console.log("err ", err);
-  });
 export const klineRouter = Router();
 
 klineRouter.get("/", async (req, res) => {
   const { market, interval, startTime, endTime } = req.query as any;
-  let query;
-  if (["1m", "1h"].includes(interval)) {
-    query = `SELECT * FROM klines_${interval} WHERE bucket >= $1 AND bucket <= $2 ORDER BY bucket ASC`;
-  } else {
-    return res.status(400).send("Invalid interval");
-  }
+  const bucket = {
+    gte: new Date(+startTime as unknown as string),
+    lte: new Date(+endTime as unknown as string),
+  };
 
   try {
-    //@ts-ignore
-    const result = await pgClient.query(query, [
-      new Date(+startTime as unknown as string),
-      new Date(+endTime as unknown as string),
-    ]);
+    let rows;
+    if (interval === "1m") {
+      rows = await prisma.kline1m.findMany({ where: { bucket }, orderBy: { bucket: "asc" } });
+    } else if (interval === "1h") {
+      rows = await prisma.kline1h.findMany({ where: { bucket }, orderBy: { bucket: "asc" } });
+    } else {
+      return res.status(400).send("Invalid interval");
+    }
 
     res.json(
-      result.rows.map((x) => ({
+      rows.map((x) => ({
         close: x.close,
-        time: Math.floor(new Date(x.bucket).getTime() / 1000),
+        time: Math.floor(x.bucket.getTime() / 1000),
         high: x.high,
         low: x.low,
         open: x.open,
-        quoteVolume: x.quoteVolume,
-        start: x.start,
-        trades: x.trades,
-        volume: x.volume,
       })),
     );
   } catch (err) {
