@@ -8,51 +8,75 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// TimescaleDB hypertable. Created via raw SQL in seed-db.ts (create_hypertable()
-// is a Timescale extension function `prisma migrate` cannot express), so this
-// model is for typed queries only — do not run `prisma migrate` against it.
-model TataPrice {
-  id           BigInt   @id @default(autoincrement())
+// Plain table, managed normally via `prisma migrate`. Only the hypertable
+// conversion (`create_hypertable`, a Timescale extension function) runs as a
+// one-time raw-SQL step afterward, in seed-db.ts.
+// `market` (e.g. "TATA_INR", "INFY_INR") lets one table hold every instrument.
+// id alone can't be the primary key: Timescale requires unique/PK constraints
+// to include the partitioning columns (time, market), so the key is composite.
+model Trade {
+  id           BigInt   @default(autoincrement())
   time         DateTime @db.Timestamptz(6)
+  market       String   @db.VarChar(20)
   price        Float?
   qty          Decimal? @db.Decimal(18, 2)
   currencyCode String?  @map("currency_code") @db.VarChar(10)
   side         String   @db.VarChar(4)
 
-  @@map("tata_prices")
+  @@id([id, time, market])
+  @@map("trades")
 }
 
 // Continuous-aggregate materialized views, created/refreshed via raw SQL
 // (seed-db.ts / cron.ts). Mapped here as read-only Prisma views.
 view Kline1m {
   bucket       DateTime @db.Timestamptz(6)
+  market       String   @db.VarChar(20)
   open         Float?
   high         Float?
   low          Float?
   close        Float?
   currencyCode String?  @map("currency_code") @db.VarChar(10)
 
+  @@unique([bucket, market])
   @@map("klines_1m")
 }
 
 view Kline1h {
   bucket       DateTime @db.Timestamptz(6)
+  market       String   @db.VarChar(20)
   open         Float?
   high         Float?
   low          Float?
   close        Float?
   currencyCode String?  @map("currency_code") @db.VarChar(10)
 
+  @@unique([bucket, market])
   @@map("klines_1h")
 }
 
 view Kline1w {
   bucket       DateTime @db.Timestamptz(6)
+  market       String   @db.VarChar(20)
   open         Float?
   high         Float?
   low          Float?
   close        Float?
   currencyCode String?  @map("currency_code") @db.VarChar(10)
 
+  @@unique([bucket, market])
   @@map("klines_1w")
+}
+
+view Kline3s {
+  bucket       DateTime @db.Timestamptz(6)
+  market       String   @db.VarChar(20)
+  open         Float?
+  high         Float?
+  low          Float?
+  close        Float?
+  currencyCode String?  @map("currency_code") @db.VarChar(10)
+
+  @@unique([bucket, market])
+  @@map("klines_3s")
 }

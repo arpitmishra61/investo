@@ -11,9 +11,9 @@ import { Card } from "@/components/ui/card";
 import { TimeframeSwitch } from "./timeFrame";
 import axios from "axios";
 
-export function PriceChart() {
+export function PriceChart({ market = "TATA_INR" }: { market?: string }) {
     const ref = useRef<HTMLDivElement>(null);
-    const [tf, setTf] = useState<"1h" | "1m">("1m");
+    const [tf, setTf] = useState<"1h" | "1m" | "3s">("1m");
 
     useEffect(() => {
         if (!ref.current) return;
@@ -24,7 +24,7 @@ export function PriceChart() {
             width: ref.current.clientWidth,
             autoSize: true,
             timeScale: {
-                barSpacing: 5,
+                barSpacing: tf === "3s" ? 12 : 5,
             },
             layout: {
                 background: { type: ColorType.Solid, color: "#ffffff" },
@@ -49,23 +49,29 @@ export function PriceChart() {
             timeScale: {
                 timeVisible: true,
 
-                secondsVisible: false,
+                secondsVisible: tf === "3s",
             },
         });
+        const pollMs = 2000;
         const interval = setInterval(() => {
             const currentTime = Date.now()
-            //const day = 10 * 24 * 60 * 60 * 10
+            // 3s candles query the raw trades table directly (see kline.ts), so
+            // keep the window short instead of pulling the whole history.
             const startTime = 1767020774440
             const endTime = currentTime
-            axios.get(`http://localhost:8000/api/v1/klines?symbol=TATA_INR&interval=${tf}&endTime=${endTime}&startTime=${startTime}`).then(res => {
-                const recent = res.data.slice(-10);
+            axios.get(`http://localhost:8000/api/v1/klines?market=${market}&interval=${tf}&endTime=${endTime}&startTime=${startTime}`).then(res => {
+                const recent = tf === "3s" ? res.data.slice(-30) : res.data.slice(-60);
 
                 series.setData(recent);
 
-                chart.timeScale().fitContent();
+                if (tf === "3s") {
+                    chart.timeScale().scrollToRealTime();
+                } else {
+                    chart.timeScale().fitContent();
+                }
             })
 
-        }, 2000)
+        }, pollMs)
 
 
         return () => {
@@ -73,7 +79,7 @@ export function PriceChart() {
             chart.remove()
 
         }
-    }, [tf]);
+    }, [tf, market]);
 
     return (
         <Card className="p-4 border-zinc-200 shadow-md h-full">

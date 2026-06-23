@@ -29,15 +29,15 @@ tickersRouter.get("/", async (req, res) => {
   const rows = await prisma.$queryRaw<TickerDBRow[]>`
 WITH last_trade AS (
   SELECT price
-  FROM tata_prices
-  WHERE currency_code = ${"$"}
+  FROM trades
+  WHERE market = ${market as string} AND currency_code = ${"$"}
   ORDER BY time DESC
   LIMIT 1
 ),
 trades_24h AS (
   SELECT price, qty, time
-  FROM tata_prices
-  WHERE currency_code = ${"$"}
+  FROM trades
+  WHERE market = ${market as string} AND currency_code = ${"$"}
     AND time >= now() - interval '24 hours'
 )
 SELECT
@@ -50,17 +50,17 @@ FROM trades_24h;
 `;
   const row = rows[0];
 
-  const last = Number(row.last_price);
-  const open = Number(row.open24h ?? row.last_price);
+  const last = Number(row.last_price ?? 0);
+  const open = Number(row.open24h ?? row.last_price ?? 0);
 
   const response: TickerResponse = {
     lastPrice: last,
-    low24h: Number(row.low24h),
-    high24h: Number(row.high24h),
-    volume24h: Number(row.volume24h),
+    low24h: Number(row.low24h ?? 0),
+    high24h: Number(row.high24h ?? 0),
+    volume24h: Number(row.volume24h ?? 0),
     open24h: open,
     priceChange24h: last - open,
-    priceChangePercent24h: ((last - open) / open) * 100,
+    priceChangePercent24h: open === 0 ? 0 : ((last - open) / open) * 100,
   };
 
   res.json({ result: response });

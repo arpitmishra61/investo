@@ -53,7 +53,11 @@ export class Engine {
       );
       this.balances = new Map(snapshotSnapshot.balances);
     } else {
-      this.orderbooks = [new Orderbook(`TATA`, [], [], 0, 0)];
+      this.orderbooks = [
+        new Orderbook(`TATA`, [], [], 0, 0),
+        new Orderbook(`GOOGLE`, [], [], 0, 0),
+        new Orderbook(`META`, [], [], 0, 0),
+      ];
       this.setBaseBalances();
     }
     setInterval(() => {
@@ -596,37 +600,25 @@ console.log("FsdfgsgsG",orderbook?.currentPrice)
   }
 
   setBaseBalances() {
-    this.balances.set("1", {
-      [BASE_CURRENCY]: {
-        available: 10000000,
-        locked: 0,
-      },
-      TATA: {
-        available: 10000000,
-        locked: 0,
-      },
-    });
-
-    this.balances.set("2", {
-      [BASE_CURRENCY]: {
-        available: 10000000,
-        locked: 0,
-      },
-      TATA: {
-        available: 10000000,
-        locked: 0,
-      },
-    });
-
-    this.balances.set("5", {
-      [BASE_CURRENCY]: {
-        available: 10000000,
-        locked: 0,
-      },
-      TATA: {
-        available: 10000000,
-        locked: 0,
-      },
-    });
+    for (const userId of ["1", "2", "5"]) {
+      this.balances.set(userId, {
+        [BASE_CURRENCY]: {
+          available: 10000000,
+          locked: 0,
+        },
+        TATA: {
+          available: 10000000,
+          locked: 0,
+        },
+        GOOGLE: {
+          available: 10000000,
+          locked: 0,
+        },
+        META: {
+          available: 10000000,
+          locked: 0,
+        },
+      });
+    }
   }
 }

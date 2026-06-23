@@ -23,7 +23,7 @@ type AccountBalances = {
     INR: Balance;
     TATA: Balance;
 };
-export function TradingOrderForm() {
+export function TradingOrderForm({ market = "TATA_INR" }: { market?: string }) {
     const [side, setSide] = useState<"buy" | "sell">("buy");
     const [orderType, setOrderType] = useState<"limit" | "market" | "conditional">("limit");
     const [price, setPrice] = useState("87547.5");
@@ -142,7 +142,7 @@ export function TradingOrderForm() {
                     const url = 'http://localhost:8000/api/v1/order';
 
                     const payload = {
-                        market: 'TATA_INR',
+                        market,
                         price,
                         quantity,
                         side,

@@ -45,7 +45,7 @@ function setDepthQuantity(res: OrderBookResponse, wsUpdate: Boolean | undefined)
 
 }
 export function OrderBook({ symbol = "TATA_INR" }: { symbol: string }) {
-  const market = "TATA_INR"
+  const market = symbol
   const [depth, setDepth] = useState<OrderBookClient>({
     data: {
       lastUpdateId: 0,
@@ -65,7 +65,7 @@ export function OrderBook({ symbol = "TATA_INR" }: { symbol: string }) {
     SignalingManager.getInstance().sendMessage({ "method": "SUBSCRIBE", "params": [`depth@${market}`] });
     SignalingManager.getInstance().sendMessage({ "method": "SUBSCRIBE", "params": [`trade@${market}`] });
     SignalingManager.getInstance().sendMessage({ "method": "SUBSCRIBE", "params": [`current_price@${market}`] });
-    axios.get<OrderBookResponse>(`http://localhost:8000/api/v1/depth?symbol=TATA_INR`).then((res) => {
+    axios.get<OrderBookResponse>(`http://localhost:8000/api/v1/depth?symbol=${symbol}`).then((res) => {
       const updatedData = setDepthQuantity(res.data, false)
       setDepth({ data: updatedData, loading: false });
     });

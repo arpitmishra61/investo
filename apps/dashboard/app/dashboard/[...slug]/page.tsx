@@ -7,7 +7,17 @@ import { ChartCandlestick, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 Button
-export default function Page() {
+
+const SYMBOL_TO_MARKET: Record<string, string> = {
+    tata: "TATA_INR",
+    google: "GOOGLE_INR",
+    meta: "META_INR",
+};
+
+export default async function Page({ params }: { params: Promise<{ slug: string[] }> }) {
+    const { slug } = await params;
+    const symbol = slug?.[0]?.toLowerCase() ?? "tata";
+    const market = SYMBOL_TO_MARKET[symbol] ?? "TATA_INR";
     return (
         <div className="min-h-screen bg-zinc-50">
             <div className="p-3 sm:p-6 space-y-5 max-w-[1400px] m-auto">
@@ -26,17 +36,17 @@ export default function Page() {
 
                 </div>
 
-                <TopBar />
+                <TopBar market={market} />
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                     <div className="lg:col-span-6">
-                        <PriceChart />
+                        <PriceChart market={market} />
                     </div>
                     <div className="lg:col-span-3">
-                        <OrderBook symbol="TATA_INR" />
+                        <OrderBook symbol={market} />
                     </div>
                     <div className="lg:col-span-3">
-                        <TradingOrderForm />
+                        <TradingOrderForm market={market} />
                     </div>
                 </div>
             </div>

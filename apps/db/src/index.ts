@@ -18,13 +18,14 @@ async function main() {
       if (res.type === "TRADE_ADDED") {
         console.log("adding res");
         console.log(res);
-        const { price, quantity, timestamp, isBuyerMaker } = res.data;
+        const { price, quantity, timestamp, isBuyerMaker, market } = res.data;
         console.log(isBuyerMaker);
         // TODO: How to add volume?
-        await prisma.tataPrice
+        await prisma.trade
           .create({
             data: {
               time: new Date(timestamp),
+              market,
               price: parseFloat(price),
               qty: quantity,
               currencyCode: "$",

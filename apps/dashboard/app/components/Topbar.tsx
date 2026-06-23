@@ -14,16 +14,16 @@ import Image from "next/image";
 
 const BASE_URL = "http://localhost:8000";
 
-const getTicker = async (symbol: string): Promise<Ticker> => {
-    const res = await axios.get(`${BASE_URL}/api/v1/tickers/?symbol=${symbol}`)
+const getTicker = async (market: string): Promise<Ticker> => {
+    const res = await axios.get(`${BASE_URL}/api/v1/tickers/?market=${market}`)
     return res.data.result
 }
 
-export function TopBar() {
+export function TopBar({ market = "TATA_INR" }: { market?: string }) {
 
     const [ticker, setTicker] = useState<Ticker | null>()
-    const market = "TATA_INR"
     useEffect(() => {
+        setTicker(null)
 
         SignalingManager.getInstance().registerCallback("ticker", (data: Omit<Ticker, "trades">) => setTicker(prevTicker => ({
             lastPrice: data.lastPrice,
@@ -32,7 +32,7 @@ export function TopBar() {
             volume24h: data.volume24h,
             open24h: data.open24h,
             priceChange24h: data.priceChange24h,
-            priceChangePercent24h: data.high24h,
+            priceChangePercent24h: data.priceChangePercent24h,
         })), `TICKER-${market}`);
         SignalingManager.getInstance().sendMessage({ "method": "SUBSCRIBE", "params": [`ticker@${market}`] });
         //currently doing the loop not in ws
@@ -54,10 +54,16 @@ export function TopBar() {
                 {/* Left side: symbol + price */}
                 <div className="flex items-center gap-4 sm:gap-8">
                     <div className="rounded-xl overflow-hidden ring-1 ring-zinc-200 shadow-sm">
-                        <Image src="/tata_logo.jpg" height={60} width={60} alt="tata_logo" className="h-12 w-12 sm:h-15 sm:w-15 object-cover" />
+                        {market === "TATA_INR" ? (
+                            <Image src="/tata_logo.jpg" height={60} width={60} alt={market} className="h-12 w-12 sm:h-15 sm:w-15 object-cover" />
+                        ) : (
+                            <div className="flex h-12 w-12 sm:h-15 sm:w-15 items-center justify-center bg-zinc-100 text-sm font-semibold text-zinc-600">
+                                {market.slice(0, 1)}
+                            </div>
+                        )}
                     </div>
                     <div>
-                        <h1 className="text-lg sm:text-xl font-semibold tracking-tight">{"TATA_INR"}</h1>
+                        <h1 className="text-lg sm:text-xl font-semibold tracking-tight">{market}</h1>
                         <p className={`text-xl sm:text-2xl font-bold ${+ticker.priceChange24h >= 0 ? "text-green-600" : "text-red-600"}`}>
                             ₹ {ticker.lastPrice.toLocaleString()}
                         </p>
@@ -66,7 +72,7 @@ export function TopBar() {
 
                 {/* Right side: stats */}
                 <div className="flex flex-nowrap justify-center gap-1.5 sm:gap-3 text-sm w-full md:w-auto overflow-x-auto">
-                    <Stat label="24h Change" value={`${ticker.priceChangePercent24h.toPrecision(4)}%`} Icon={ClockFading} />
+                    <Stat label="24h Change" value={`${(ticker.priceChangePercent24h ?? 0).toPrecision(4)}%`} Icon={ClockFading} />
                     <Stat label="Volume" value={`${ticker.volume24h.toLocaleString()}`} Icon={ChartColumnStacked} />
                     <Stat label="24h Low" value={"₹" + ticker.low24h} Icon={ArrowDownLeft} />
 

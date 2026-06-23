@@ -4,6 +4,7 @@ import "dotenv/config";
 
 export const klineRouter = Router();
 
+
 klineRouter.get("/", async (req, res) => {
   const { market, interval, startTime, endTime } = req.query as any;
   const bucket = {
@@ -14,9 +15,11 @@ klineRouter.get("/", async (req, res) => {
   try {
     let rows;
     if (interval === "1m") {
-      rows = await prisma.kline1m.findMany({ where: { bucket }, orderBy: { bucket: "asc" } });
+      rows = await prisma.kline1m.findMany({ where: { market, bucket }, orderBy: { bucket: "asc" } });
     } else if (interval === "1h") {
-      rows = await prisma.kline1h.findMany({ where: { bucket }, orderBy: { bucket: "asc" } });
+      rows = await prisma.kline1h.findMany({ where: { market, bucket }, orderBy: { bucket: "asc" } });
+    } else if (interval === "3s") {
+      rows = await prisma.kline3s.findMany({ where: { market, bucket }, orderBy: { bucket: "asc" } });
     } else {
       return res.status(400).send("Invalid interval");
     }

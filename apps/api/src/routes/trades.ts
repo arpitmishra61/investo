@@ -13,8 +13,8 @@ tradesRouter.get("/", async (req, res) => {
     const endOfDay = new Date(startOfDay);
     endOfDay.setDate(endOfDay.getDate() + 1);
 
-    const rows = await prisma.tataPrice.findMany({
-      where: { time: { gte: startOfDay, lte: endOfDay } },
+    const rows = await prisma.trade.findMany({
+      where: { market: market as string, time: { gte: startOfDay, lte: endOfDay } },
       take: 10,
     });
     const trades = rows.map((row) => ({
