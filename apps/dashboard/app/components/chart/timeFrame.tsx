@@ -30,7 +30,7 @@ export function TimeframeSwitch({
                 variant={value === "3s" ? "default" : "outline"}
                 onClick={() => onChange("3s")}
             >
-                3s
+                10s
             </Button>
         </div>
     );

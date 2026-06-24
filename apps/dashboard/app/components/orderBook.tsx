@@ -153,10 +153,12 @@ export function OrderBook({ symbol = "TATA_INR" }: { symbol: string }) {
     }, `CURRENT_PRICE-${symbol}`);
 
     return () => {
-      SignalingManager.getInstance().deRegisterCallback("depth", `DEPTH-${symbol}`)
-      SignalingManager.getInstance().deRegisterCallback("trade", `TRADE-${symbol}`)
-      SignalingManager.getInstance().deRegisterCallback("current_price", `CURRENT_PRICE-${symbol}`)
-
+      SignalingManager.getInstance().deRegisterCallback("depth", `DEPTH-${symbol}`);
+      SignalingManager.getInstance().deRegisterCallback("trade", `TRADE-${symbol}`);
+      SignalingManager.getInstance().deRegisterCallback("current_price", `CURRENT_PRICE-${symbol}`);
+      SignalingManager.getInstance().sendMessage({ method: "UNSUBSCRIBE", params: [`depth@${market}`] });
+      SignalingManager.getInstance().sendMessage({ method: "UNSUBSCRIBE", params: [`trade@${market}`] });
+      SignalingManager.getInstance().sendMessage({ method: "UNSUBSCRIBE", params: [`current_price@${market}`] });
     }
 
   }, [symbol])

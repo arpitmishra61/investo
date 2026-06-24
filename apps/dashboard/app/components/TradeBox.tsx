@@ -41,6 +41,10 @@ export function TradingOrderForm({ market = "TATA_INR" }: { market?: string }) {
             console.log(updatedBalance)
             setBalance(updatedBalance)
         }, `BALANCE-${5}`);
+        return () => {
+            SignalingManager.getInstance().deRegisterCallback("balance", `BALANCE-${5}`);
+            SignalingManager.getInstance().sendMessage({ method: "UNSUBSCRIBE", params: [`balance@5`] });
+        };
     }, [])
 
 

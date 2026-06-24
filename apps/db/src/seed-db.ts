@@ -55,7 +55,7 @@ async function initializeDB() {
   await prisma.$executeRawUnsafe(`
         CREATE MATERIALIZED VIEW IF NOT EXISTS klines_3s AS
         SELECT
-            time_bucket('3 seconds', time) AS bucket,
+            time_bucket('10 seconds', time) AS bucket,
             market,
             first(price, time) AS open,
             max(price) AS high,

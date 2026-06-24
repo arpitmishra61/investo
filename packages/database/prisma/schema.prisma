@@ -27,6 +27,15 @@ model Trade {
   @@map("trades")
 }
 
+// Stores last known price per market for MM cold-start recovery
+model MarketState {
+  market    String   @id @db.VarChar(20)
+  price     Float
+  updatedAt DateTime @updatedAt
+
+  @@map("market_state")
+}
+
 // Continuous-aggregate materialized views, created/refreshed via raw SQL
 // (seed-db.ts / cron.ts). Mapped here as read-only Prisma views.
 view Kline1m {

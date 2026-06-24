@@ -6,8 +6,10 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "concurrently \"tsx watch src/index.ts\" \"tsx src/cron.ts\"",
+    "dev": "tsx src/index.ts",
     "seed:db": "tsx src/seed-db.ts",
+    "seed:trades": "tsx src/seed-trades.ts",
+    "rotate": "tsx src/rotate-trades.ts",
     "refresh:views": "tsx src/cron.ts"
   },
   "keywords": [],
