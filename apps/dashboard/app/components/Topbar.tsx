@@ -2,17 +2,17 @@
 "use client"
 
 import { Card } from "@/components/ui/card";
-import { PercentCircle, DecimalsArrowLeftIcon, FilesIcon, Bitcoin, IndianRupee, ArrowUpRight, ArrowDown, ArrowDownLeft, ClockFading, ChartColumnStacked } from "lucide-react";
+import { ArrowUpRight, ArrowDownLeft, ClockFading, ChartColumnStacked, Play, Pause } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-
 import { Ticker } from "@repo/types/ticker";
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import axios from "axios";
 import { SignalingManager } from "./../../lib/SignalManager"
 import Image from "next/image";
 
 const BASE_URL = "http://localhost:8000";
+const IDLE_TIMEOUT_MS = 60_000;
 
 const getTicker = async (market: string): Promise<Ticker> => {
     const res = await axios.get(`${BASE_URL}/api/v1/tickers/?market=${market}`)
@@ -20,12 +20,40 @@ const getTicker = async (market: string): Promise<Ticker> => {
 }
 
 export function TopBar({ market = "TATA_INR" }: { market?: string }) {
-
     const [ticker, setTicker] = useState<Ticker | null>()
-    useEffect(() => {
-        setTicker(null)
+    const [tradeStopped, setTradeStopped] = useState(false);
+    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-        SignalingManager.getInstance().registerCallback("ticker", (data: Omit<Ticker, "trades">) => setTicker(prevTicker => ({
+    function scheduleStop() {
+        if (timerRef.current) clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(() => {
+            SignalingManager.getInstance().stopMM(market);
+            setTradeStopped(true);
+        }, IDLE_TIMEOUT_MS);
+    }
+
+    function handleStartTrade() {
+        SignalingManager.getInstance().startMM(market);
+        setTradeStopped(false);
+        scheduleStop();
+    }
+
+    function handleStopTrade() {
+        SignalingManager.getInstance().stopMM(market);
+        setTradeStopped(true);
+        if (timerRef.current) {
+            clearTimeout(timerRef.current);
+            timerRef.current = null;
+        }
+    }
+
+    useEffect(() => {
+        setTicker(null);
+        setTradeStopped(false);
+        SignalingManager.getInstance().startMM(market);
+        scheduleStop();
+
+        SignalingManager.getInstance().registerCallback("ticker", (data: Omit<Ticker, "trades">) => setTicker(() => ({
             lastPrice: data.lastPrice,
             low24h: data.low24h,
             high24h: data.high24h,
@@ -35,18 +63,16 @@ export function TopBar({ market = "TATA_INR" }: { market?: string }) {
             priceChangePercent24h: data.priceChangePercent24h,
         })), `TICKER-${market}`);
         SignalingManager.getInstance().sendMessage({ "method": "SUBSCRIBE", "params": [`ticker@${market}`] });
-        //currently doing the loop not in ws
         setInterval(() => {
             getTicker(market).then(setTicker).catch(err => console.log("err", err))
         }, 5000)
 
         return () => {
+            if (timerRef.current) clearTimeout(timerRef.current);
             SignalingManager.getInstance().deRegisterCallback("ticker", `TICKER-${market}`);
             SignalingManager.getInstance().sendMessage({ "method": "UNSUBSCRIBE", "params": [`ticker@${market}`] });
         }
     }, [market])
-
-
 
     if (ticker)
         return (
@@ -70,14 +96,30 @@ export function TopBar({ market = "TATA_INR" }: { market?: string }) {
                     </div>
                 </div>
 
-                {/* Right side: stats */}
-                <div className="flex flex-nowrap justify-center gap-1.5 sm:gap-3 text-sm w-full md:w-auto overflow-x-auto">
+                {/* Right side: stats + optional start-trade button */}
+                <div className="flex flex-nowrap items-center justify-center gap-1.5 sm:gap-3 text-sm w-full md:w-auto overflow-x-auto">
                     <Stat label="24h Change" value={`${(ticker.priceChangePercent24h ?? 0).toPrecision(4)}%`} Icon={ClockFading} />
                     <Stat label="Volume" value={`${ticker.volume24h.toLocaleString()}`} Icon={ChartColumnStacked} />
-                    <Stat label="24h Low" value={"₹" + ticker.low24h} Icon={ArrowDownLeft} />
+                    <Stat label="24h Low" value={"₹" + ticker.low24h.toFixed(2)} Icon={ArrowDownLeft} />
+                    <Stat label="24h High" value={"₹" + ticker.high24h.toFixed(2)} Icon={ArrowUpRight} />
 
-                    <Stat label="24h High" value={"₹" + ticker.high24h} Icon={ArrowUpRight} />
-
+                    {tradeStopped ? (
+                        <button
+                            onClick={() => { }}
+                            className="flex items-center gap-1.5 rounded-md bg-zinc-900 px-3 py-2 text-xs font-semibold text-white shadow hover:bg-zinc-700 transition flex-shrink-0"
+                        >
+                            <Play className="h-3.5 w-3.5" />
+                            Start Trade
+                        </button>
+                    ) : (
+                        <button
+                            onClick={handleStopTrade}
+                            className="flex items-center gap-1.5 rounded-md bg-zinc-900 px-3 py-2 text-xs font-semibold text-white shadow hover:bg-zinc-700 transition flex-shrink-0"
+                        >
+                            <Pause className="h-3.5 w-3.5" />
+                            Stop Trade
+                        </button>
+                    )}
                 </div>
             </Card>
         );

@@ -259,7 +259,7 @@ function Row({
       <strong className={color === "green" ? "text-green-600" : "text-red-600"}>
         {price.toLocaleString()}
       </strong>
-      {amount && <span className="text-zinc-600">{amount}</span>}
+      {amount && <span className="text-zinc-600">{+amount.toFixed(2)}</span>}
       <span className="text-zinc-600">{qty}</span>
       {time && <span className="text-zinc-500 text-xs">{time}</span>}
 

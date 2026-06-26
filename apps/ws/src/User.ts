@@ -1,7 +1,7 @@
 import { WebSocket } from "ws";
 import { OutgoingMessage } from "./types/out";
 import { SubscriptionManager } from "./SubscriptionManager";
-import { IncomingMessage, SUBSCRIBE, UNSUBSCRIBE } from "./types/in";
+import { IncomingMessage, MM_START, MM_STOP, SUBSCRIBE, UNSUBSCRIBE } from "./types/in";
 
 export class User {
     private id: string;
@@ -37,6 +37,14 @@ export class User {
 
             if (parsedMessage.method === UNSUBSCRIBE) {
                 parsedMessage.params.forEach(s => SubscriptionManager.getInstance().unsubscribe(this.id, parsedMessage.params[0]));
+            }
+
+            if (parsedMessage.method === MM_STOP) {
+                parsedMessage.params.forEach(market => SubscriptionManager.getInstance().publishMmStop(market));
+            }
+
+            if (parsedMessage.method === MM_START) {
+                parsedMessage.params.forEach(market => SubscriptionManager.getInstance().publishMmStart(market));
             }
         });
     }

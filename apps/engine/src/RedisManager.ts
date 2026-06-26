@@ -45,6 +45,10 @@ export class RedisManager {
   
     public pushMessage(message: DbMessage) {
         this.client.lPush("db_processor", JSON.stringify(message));
+        // wake the db processor so trades from manual orders are flushed even when MM is idle
+        if (message.type === TRADE_ADDED) {
+            this.client.publish("db:wake", "1");
+        }
     }
 
     public publishMessage(channel: string, message: WsMessage) {

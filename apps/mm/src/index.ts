@@ -1,3 +1,4 @@
+import "dotenv/config";
 import axios from "axios";
 import { createClient } from "redis";
 import { PrismaClient } from "@prisma/client";
@@ -16,12 +17,20 @@ type MarketConfig = {
 };
 
 const MARKET_CONFIGS: MarketConfig[] = [
-  { market: "GOOGLE_INR", defaultPrice: 14000, volatility: 25, intervalMs: 3000 },
-  { market: "META_INR",   defaultPrice: 32000, volatility: 60, intervalMs: 5000 },
+  { market: "TATA_INR", defaultPrice: 3500, volatility: 15, intervalMs: 3000 },
+  {
+    market: "GOOGLE_INR",
+    defaultPrice: 14000,
+    volatility: 25,
+    intervalMs: 3000,
+  },
+  { market: "META_INR", defaultPrice: 32000, volatility: 60, intervalMs: 5000 },
 ];
 
 // active interval handles keyed by market
 const activeMarkets = new Map<string, ReturnType<typeof setInterval>>();
+// guard against concurrent startMarket() calls for the same market
+const startingMarkets = new Set<string>();
 // current price per market (in-memory, synced to Redis + DB)
 const prices = new Map<string, number>();
 // DB price sync timers
@@ -31,13 +40,18 @@ const stopTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 const STOP_DEBOUNCE_MS = 8_000; // wait 8s before actually stopping
 
-async function loadPrice(market: string, defaultPrice: number): Promise<number> {
+async function loadPrice(
+  market: string,
+  defaultPrice: number,
+): Promise<number> {
   // 1. try Redis (fast path)
   const cached = await redis.get(`mm:price:${market}`).catch(() => null);
   if (cached) return parseFloat(cached);
 
   // 2. fall back to DB
-  const row = await prisma.marketState.findUnique({ where: { market } }).catch(() => null);
+  const row = await prisma.marketState
+    .findUnique({ where: { market } })
+    .catch(() => null);
   if (row) return row.price;
 
   // 3. use hardcoded default
@@ -49,23 +63,35 @@ async function savePrice(market: string, price: number) {
 }
 
 async function savePriceToDB(market: string, price: number) {
-  await prisma.marketState.upsert({
-    where: { market },
-    update: { price },
-    create: { market, price },
-  }).catch(console.error);
+  await prisma.marketState
+    .upsert({
+      where: { market },
+      update: { price },
+      create: { market, price },
+    })
+    .catch(console.error);
 }
 
-async function placeOrder(market: string, price: number, quantity: number, side: "buy" | "sell") {
-  await axios.post(`${BASE_URL}/api/v1/order`, {
-    market,
-    price: price.toFixed(1).toString(),
-    quantity: quantity.toFixed(2).toString(),
-    side,
-    userId: USER_ID,
-  }).catch((err: any) => {
-    console.log(`order failed for ${market}`, err?.response?.data ?? err.message);
-  });
+async function placeOrder(
+  market: string,
+  price: number,
+  quantity: number,
+  side: "buy" | "sell",
+) {
+  await axios
+    .post(`${BASE_URL}/api/v1/order`, {
+      market,
+      price: price.toFixed(1).toString(),
+      quantity: quantity.toFixed(2).toString(),
+      side,
+      userId: USER_ID,
+    })
+    .catch((err: any) => {
+      console.log(
+        `order failed for ${market}`,
+        err?.response?.data ?? err.message,
+      );
+    });
 }
 
 async function tick(config: MarketConfig) {
@@ -81,13 +107,29 @@ async function tick(config: MarketConfig) {
   const spread = price * 0.0015;
   const qty = 0.5 + Math.random() * 2;
 
-  await placeOrder(config.market, price - spread - Math.random() * spread, qty, "buy");
-  await placeOrder(config.market, price + spread + Math.random() * spread, qty, "sell");
+  await placeOrder(
+    config.market,
+    price - spread - Math.random() * spread,
+    qty,
+    "buy",
+  );
+  await placeOrder(
+    config.market,
+    price + spread + Math.random() * spread,
+    qty,
+    "sell",
+  );
 
   if (Math.random() < 0.6) {
     const crossSide = Math.random() < 0.5 ? "buy" : "sell";
-    const crossPrice = crossSide === "buy" ? price + spread * 2 : price - spread * 2;
-    await placeOrder(config.market, crossPrice, 0.3 + Math.random() * 1, crossSide);
+    const crossPrice =
+      crossSide === "buy" ? price + spread * 2 : price - spread * 2;
+    await placeOrder(
+      config.market,
+      crossPrice,
+      0.3 + Math.random() * 1,
+      crossSide,
+    );
   }
 
   console.log(`${config.market} tick @ ${price.toFixed(2)}`);
@@ -97,14 +139,26 @@ async function warmOrderbook(config: MarketConfig) {
   const price = prices.get(config.market)!;
   const spread = price * 0.0015;
   for (let i = 1; i <= 5; i++) {
-    await placeOrder(config.market, price - spread * i, 1 + Math.random(), "buy");
-    await placeOrder(config.market, price + spread * i, 1 + Math.random(), "sell");
+    await placeOrder(
+      config.market,
+      price - spread * i,
+      1 + Math.random(),
+      "buy",
+    );
+    await placeOrder(
+      config.market,
+      price + spread * i,
+      1 + Math.random(),
+      "sell",
+    );
   }
   console.log(`${config.market} orderbook warmed`);
 }
 
 async function startMarket(market: string) {
   // cancel any pending stop for this market
+  console.log(`starting market ${market}…`);
+
   const pending = stopTimers.get(market);
   if (pending) {
     clearTimeout(pending);
@@ -112,29 +166,38 @@ async function startMarket(market: string) {
     console.log(`${market} stop cancelled — user came back`);
   }
 
-  if (activeMarkets.has(market)) return; // already running
+  if (activeMarkets.has(market) || startingMarkets.has(market)) return; // already running or starting
+  startingMarkets.add(market);
 
-  const config = MARKET_CONFIGS.find((c) => c.market === market);
-  if (!config) return;
+  try {
+    const config = MARKET_CONFIGS.find((c) => c.market === market);
+    if (!config) return;
 
-  const price = await loadPrice(market, config.defaultPrice);
-  prices.set(market, price);
-  console.log(`${market} starting @ ${price.toFixed(2)}`);
+    const price = await loadPrice(market, config.defaultPrice);
+    prices.set(market, price);
+    console.log(`${market} starting @ ${price.toFixed(2)}`);
 
-  await warmOrderbook(config);
-  await tick(config);
-  const interval = setInterval(() => tick(config), config.intervalMs);
-  activeMarkets.set(market, interval);
+    await warmOrderbook(config);
+    await tick(config);
+    const interval = setInterval(() => tick(config), config.intervalMs);
+    activeMarkets.set(market, interval);
 
-  // sync price to DB every 60s so Redis crash only loses 60s of drift
-  const dbTimer = setInterval(() => savePriceToDB(market, prices.get(market)!), 60_000);
-  dbSyncTimers.set(market, dbTimer);
+    // sync price to DB every 60s so Redis crash only loses 60s of drift
+    const dbTimer = setInterval(
+      () => savePriceToDB(market, prices.get(market)!),
+      60_000,
+    );
+    dbSyncTimers.set(market, dbTimer);
 
-  // signal DB app to wake up
-  await redis.publish("db:wake", market).catch(() => {});
+    // signal DB app to wake up
+    await redis.publish("db:wake", market).catch(() => {});
+  } finally {
+    startingMarkets.delete(market);
+  }
 }
 
 async function doStopMarket(market: string) {
+  console.log(`stopping ${market}…`);
   stopTimers.delete(market);
   const interval = activeMarkets.get(market);
   if (!interval) return;
@@ -173,10 +236,24 @@ async function main() {
   });
 
   await sub.subscribe("mm:stop", (market) => {
-    console.log(`received mm:stop for ${market}, debouncing ${STOP_DEBOUNCE_MS}ms…`);
+    console.log(
+      `received mm:stop for ${market}, debouncing ${STOP_DEBOUNCE_MS}ms…`,
+    );
     if (stopTimers.has(market)) return; // already pending
     const t = setTimeout(() => doStopMarket(market), STOP_DEBOUNCE_MS);
     stopTimers.set(market, t);
+  });
+
+  // explicit idle-timeout stop from the frontend — no debounce, stop immediately
+  await sub.subscribe("mm:stop:force", async (market) => {
+    console.log(`received mm:stop:force for ${market}, stopping immediately`);
+    // cancel any pending debounced stop so we don't double-fire
+    const pending = stopTimers.get(market);
+    if (pending) {
+      clearTimeout(pending);
+      stopTimers.delete(market);
+    }
+    await doStopMarket(market);
   });
 }
 

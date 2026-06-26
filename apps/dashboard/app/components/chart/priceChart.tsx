@@ -13,7 +13,7 @@ import axios from "axios";
 
 export function PriceChart({ market = "TATA_INR" }: { market?: string }) {
     const ref = useRef<HTMLDivElement>(null);
-    const [tf, setTf] = useState<"1h" | "1m" | "3s">("1m");
+    const [tf, setTf] = useState<"1h" | "1m" | "3s">("3s");
 
     useEffect(() => {
         if (!ref.current) return;

@@ -103,7 +103,19 @@ export class SignalingManager {
     }
     console.log("mee", message);
 
+    if (this.ws.readyState !== WebSocket.OPEN) {
+      console.warn("WS not open, dropping message", messageToSend);
+      return;
+    }
     this.ws.send(JSON.stringify(messageToSend));
+  }
+
+  stopMM(market: string) {
+    this.sendMessage({ method: "MM_STOP", params: [market] });
+  }
+
+  startMM(market: string) {
+    this.sendMessage({ method: "MM_START", params: [market] });
   }
 
   async registerCallback(type: string, callback: any, id: string) {

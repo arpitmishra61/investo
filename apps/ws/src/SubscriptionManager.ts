@@ -44,13 +44,10 @@ export class SubscriptionManager {
       if (!this.userMarkets.has(userId)) this.userMarkets.set(userId, new Set());
       this.userMarkets.get(userId)!.add(market);
 
-      if (prev.length === 0) {
-        // first subscriber on this channel — check if market was already active from another channel
-        if (!this.hasActiveSubscribersForMarket(market, subscription)) {
-          this.pubClient.publish("mm:start", market).catch(console.error);
-          console.log(`mm:start → ${market}`);
-        }
-      }
+      // mm:start is sent explicitly via MM_START message from the frontend (Topbar).
+      // Do NOT auto-publish here — it would create a duplicate mm:start on every
+      // subscription and cause two concurrent startMarket() calls in the MM service,
+      // resulting in a ghost interval that survives doStopMarket().
     }
 
     if (prev.length === 0) {
@@ -103,6 +100,18 @@ export class SubscriptionManager {
 
   getSubscriptions(userId: string) {
     return this.subscriptions.get(userId) || [];
+  }
+
+  public publishMmStop(market: string) {
+    this.pubClient.publish("mm:stop:force", market)
+      .then(() => console.log(`mm:stop:force → ${market}`))
+      .catch(console.error);
+  }
+
+  public publishMmStart(market: string) {
+    this.pubClient.publish("mm:start", market)
+      .then(() => console.log(`mm:start (manual) → ${market}`))
+      .catch(console.error);
   }
 
   // check if any channel for this market has subscribers (optionally excluding one channel)
