@@ -1,12 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import {
-    createChart,
-    ColorType,
-    CandlestickSeries,
-} from "lightweight-charts";
-
+import { createChart, ColorType, CandlestickSeries } from "lightweight-charts";
+import { useTheme } from "next-themes";
 import { Card } from "@/components/ui/card";
 import { TimeframeSwitch } from "./timeFrame";
 import axios from "axios";
@@ -14,28 +10,26 @@ import axios from "axios";
 export function PriceChart({ market = "TATA_INR" }: { market?: string }) {
     const ref = useRef<HTMLDivElement>(null);
     const [tf, setTf] = useState<"1h" | "1m" | "3s">("3s");
+    const { resolvedTheme } = useTheme();
 
     useEffect(() => {
         if (!ref.current) return;
         ref.current.innerHTML = "";
 
+        const dark = resolvedTheme === "dark";
+
         const chart = createChart(ref.current, {
             height: 400,
-            width: ref.current.clientWidth,
             autoSize: true,
-            timeScale: {
-                barSpacing: tf === "3s" ? 12 : 5,
-            },
+            timeScale: { barSpacing: tf === "3s" ? 12 : 5 },
             layout: {
-                background: { type: ColorType.Solid, color: "#ffffff" },
-                textColor: "#111",
+                background: { type: ColorType.Solid, color: dark ? "#0f0f0f" : "#ffffff" },
+                textColor: dark ? "#a1a1aa" : "#52525b",
             },
             grid: {
-                vertLines: { color: "#eee" },
-                horzLines: { color: "#eee" },
+                vertLines: { color: dark ? "#27272a" : "#f4f4f5" },
+                horzLines: { color: dark ? "#27272a" : "#f4f4f5" },
             },
-
-
         });
 
         const series = chart.addSeries(CandlestickSeries, {
@@ -45,49 +39,34 @@ export function PriceChart({ market = "TATA_INR" }: { market?: string }) {
             wickUpColor: "#22c55e",
             wickDownColor: "#ef4444",
         });
+
         chart.applyOptions({
-            timeScale: {
-                timeVisible: true,
-
-                secondsVisible: tf === "3s",
-            },
+            timeScale: { timeVisible: true, secondsVisible: tf === "3s" },
         });
-        const pollMs = 2000;
+
         const interval = setInterval(() => {
-            const currentTime = Date.now()
-            // 3s candles query the raw trades table directly (see kline.ts), so
-            // keep the window short instead of pulling the whole history.
-            const startTime = 1767020774440
-            const endTime = currentTime
-            axios.get(`http://localhost:8000/api/v1/klines?market=${market}&interval=${tf}&endTime=${endTime}&startTime=${startTime}`).then(res => {
-                const recent = tf === "3s" ? res.data.slice(-30) : res.data.slice(-60);
+            const endTime = Date.now();
+            const startTime = 1767020774440;
+            axios
+                .get(`http://localhost:8000/api/v1/klines?market=${market}&interval=${tf}&endTime=${endTime}&startTime=${startTime}`)
+                .then((res) => {
+                    const recent = tf === "3s" ? res.data.slice(-30) : res.data.slice(-60);
+                    series.setData(recent);
+                    if (tf === "3s") chart.timeScale().scrollToRealTime();
+                    else chart.timeScale().fitContent();
+                });
+        }, 2000);
 
-                series.setData(recent);
-
-                if (tf === "3s") {
-                    chart.timeScale().scrollToRealTime();
-                } else {
-                    chart.timeScale().fitContent();
-                }
-            })
-
-        }, pollMs)
-
-
-        return () => {
-            clearInterval(interval)
-            chart.remove()
-
-        }
-    }, [tf, market]);
+        return () => { clearInterval(interval); chart.remove(); };
+    }, [tf, market, resolvedTheme]);
 
     return (
-        <Card className="p-4 border-zinc-200 shadow-md h-full">
-            <div className="flex items-center justify-between mb-2">
-                <h2 className="text-sm font-semibold text-zinc-700">Price Chart</h2>
+        <Card className="p-4 h-full">
+            <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-semibold text-muted-foreground">Price Chart</h2>
                 <TimeframeSwitch value={tf} onChange={setTf} />
             </div>
-            <div className="rounded-lg overflow-hidden border border-zinc-100">
+            <div className="rounded-lg overflow-hidden border border-border">
                 <div ref={ref} />
             </div>
         </Card>

@@ -83,7 +83,7 @@ cd apps/db && npm run seed:trades
 
 ### Market Maker Lifecycle
 - MM listens on Redis channels `mm:start` and `mm:stop` (with 8s debounce) and `mm:stop:force` (immediate)
-- **Topbar** component sends `MM_START` / `MM_STOP` / `MM_STOP_FORCE` messages via WebSocket, which are forwarded by `SubscriptionManager` as Redis pub/sub
+- **Topbar** component sends start/stop signals via `SignalingManager` → WebSocket → `SubscriptionManager` → Redis pub/sub
 - MM persists the current price to Redis (`mm:price:<market>`) every tick and to PostgreSQL every 60s
 - On start, MM loads price from Redis → DB → hardcoded default
 
@@ -93,17 +93,47 @@ cd apps/db && npm run seed:trades
 - After flush it refreshes materialized views (`klines_3s`, `klines_1m`, etc.)
 - DB wakes/sleeps via Redis channels `db:wake` / `db:sleep` to avoid idle Neon compute
 
+## Dashboard Routes
+
+| Route | Description |
+|---|---|
+| `/` | Landing/hero page |
+| `/markets` | Market list table with 24h stats |
+| `/market/[symbol]` | Trading page for a single market (`tata`, `google`, `meta`) |
+| `/orders` | Open orders view |
+
+There is **no** `/dashboard` route. The old `/dashboard/[...slug]` was removed; the trading page is now `/market/[symbol]`.
+
+## Dashboard UI Architecture
+
+- **Theme**: `next-themes` with `defaultTheme="dark"`, togglable on every page. Provider is in `app/providers.tsx`, wrapped in `app/layout.tsx`.
+- **Theme toggle**: `app/components/ThemeToggle.tsx` — renders Sun/Moon icon, uses `useTheme()`. Present in nav of every page.
+- **CSS variables**: All component colors use Tailwind CSS variable-based classes (`bg-background`, `text-foreground`, `bg-muted`, `border-border`, etc.) so they respond to the theme class on `<html>`. Never use hardcoded `bg-white`, `bg-zinc-*`, or `text-zinc-*` — use the CSS variable equivalents.
+- **Chart theming**: `PriceChart` uses `resolvedTheme` from `useTheme()` as a `useEffect` dependency to re-create the lightweight-charts instance with dark/light colors when theme changes.
+
+### Key Components
+
+| Component | Path | Notes |
+|---|---|---|
+| `MarketNav` | `app/components/MarketNav.tsx` | Nav bar for `/market/[symbol]` — client component, contains ThemeToggle |
+| `TopBar` | `app/components/Topbar.tsx` | Ticker stats + Start/Stop trade button for a market |
+| `PriceChart` | `app/components/chart/priceChart.tsx` | Candlestick chart via `lightweight-charts`, polls klines every 2s |
+| `OrderBook` | `app/components/orderBook.tsx` | Live depth + trades, updated via WebSocket |
+| `TradingOrderForm` | `app/components/TradeBox.tsx` | Buy/Sell form, subscribes to live balance via WebSocket |
+| `TradeSessionGuard` | `app/components/TradeSessionGuard.tsx` | Manages MM start/stop lifecycle on mount/unmount |
+| `MarketLoader` | `app/components/MarketLoader.tsx` | Initialises WebSocket connection for a market |
+
 ## Key Design Decisions
 
 - **Engine state is in-memory + snapshot**: The engine snapshots orderbooks and balances to `apps/engine/snapshot.json` every 3 seconds. On restart with `WITH_SNAPSHOT=true`, it restores state from that file.
 - **No floats in production**: There is a TODO in `Engine.ts` to replace float arithmetic with a decimal library — the engine currently uses `number` throughout.
-- **Balances pre-seeded**: Users `"1"`, `"2"`, and `"5"` (the MM user) are seeded with 10M INR and 10M of each stock at engine startup.
+- **Balances pre-seeded**: Users `"1"`, `"2"`, and `"5"` (the MM user) are seeded with 10M INR and 10M of each stock at engine startup. The dashboard hardcodes `userId: "5"` for all orders and balance queries.
 - **TimescaleDB klines**: The `trades` table is a Timescale hypertable. OHLC candles are served from materialized views (`klines_3s`, `klines_1m`, `klines_1h`, `klines_1w`) refreshed by the db app.
-- **Market routes**: Dashboard routes are `/dashboard/[symbol]` where symbol is `tata`, `google`, or `meta`. The `TradeSessionGuard` component manages the MM start/stop lifecycle on mount/unmount.
+- **MM `.env`**: `apps/mm` requires a `.env` file with `DATABASE_URL` and loads it via `import "dotenv/config"` at the top of `src/index.ts`. The `apps/db` app does the same.
 
 ## Environment Variables
 
-- `DATABASE_URL` — PostgreSQL/TimescaleDB connection string (used by `@repo/database` and `apps/db`)
+- `DATABASE_URL` — PostgreSQL/TimescaleDB connection string (used by `@repo/database`, `apps/db`, and `apps/mm`)
 - `REDIS_URL` — Redis connection string (used by `apps/db` and `apps/mm`; others use default `localhost:6379`)
 - `WITH_SNAPSHOT=true` — Engine flag to restore state from `snapshot.json` on startup
 - `API_URL` — Base URL for the REST API used by the MM (default: `http://localhost:8000`)

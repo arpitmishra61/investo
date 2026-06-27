@@ -14,6 +14,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@radix-ui/react-tabs"
 import { useEffect, useState } from "react"
 import axios from "axios"
 import { Loader } from "../components/Loader"
+import Link from "next/link"
+import { TrendingUpIcon } from "lucide-react"
+import { ThemeToggle } from "../components/ThemeToggle"
+
 type OpenOrder = {
     "price": number,
     "quantity": number,
@@ -23,7 +27,6 @@ type OpenOrder = {
     "userId": string,
     "timeStamp": number,
     "rQuantity": number
-
 }
 const type = "TATA"
 
@@ -31,112 +34,109 @@ export default function OpenOrdersTable() {
     useEffect(() => {
         axios.get<OpenOrder[]>("http://localhost:8000/api/v1/order/open?userId=5&market=TATA_INR").then(res => {
             setOpenOrders(res.data)
-
         })
-
     }, [])
     const [openOrders, setOpenOrders] = useState<OpenOrder[] | null>(null);
     const [orderType, setOrderType] = useState<"open" | "executed">("open");
 
     return (
+        <div className="min-h-screen bg-background text-foreground">
+            {/* Nav */}
+            <nav className="flex items-center justify-between px-6 sm:px-10 py-5 border-b border-border">
+                <Link href="/markets" className="flex items-center gap-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500 text-black">
+                        <TrendingUpIcon size={16} strokeWidth={2.5} />
+                    </div>
+                    <span className="text-lg font-bold tracking-tight">
+                        Trade<span className="text-emerald-500">Pi</span>
+                    </span>
+                </Link>
+                <ThemeToggle />
+            </nav>
 
-        <Card className="max-w-200 m-auto p-4 mt-6 mx-3 sm:mx-auto">
-            <Tabs value={orderType} onValueChange={setOrderType} className="mb-6">
-                <TabsList className="bg-zinc-100 rounded-md p-1 text-sm font-semibold w-full">
-                    <TabsTrigger value="open" className={`px-4 py-2 rounded-md ${orderType === "open" ? 'bg-zinc-800 text-white' : 'text-black'}`}>
-                        Open Orders
-                    </TabsTrigger>
-                    `<TabsTrigger value="executed" className={`px-4 py-2 rounded-md ${orderType === "executed" ? 'bg-zinc-800 text-white' : 'text-black'}`}>
-                        Executed Orders
-                    </TabsTrigger>
-                </TabsList>
+            <div className="mx-auto max-w-5xl px-4 sm:px-6 py-10">
+                <h1 className="text-3xl font-bold tracking-tight mb-8">Orders</h1>
 
+                <Card className="p-6">
+                    <Tabs value={orderType} onValueChange={setOrderType} className="mb-6">
+                        <TabsList className="bg-muted rounded-lg p-1 text-sm font-semibold inline-flex gap-1">
+                            <TabsTrigger
+                                value="open"
+                                className={`px-4 py-2 rounded-md transition-all ${orderType === "open" ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'}`}
+                            >
+                                Open Orders
+                            </TabsTrigger>
+                            <TabsTrigger
+                                value="executed"
+                                className={`px-4 py-2 rounded-md transition-all ${orderType === "executed" ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'}`}
+                            >
+                                Executed Orders
+                            </TabsTrigger>
+                        </TabsList>
 
+                        <TabsContent value="open" className="overflow-x-auto mt-4">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Qty</TableHead>
+                                        <TableHead>Side</TableHead>
+                                        <TableHead>Price</TableHead>
+                                        <TableHead>Market</TableHead>
+                                        <TableHead>Filled</TableHead>
+                                        <TableHead>Remaining</TableHead>
+                                        <TableHead className="text-right">Action</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {openOrders ? openOrders.map((order) => (
+                                        <TableRow key={order.orderId}>
+                                            <TableCell className="font-medium">{order.quantity}</TableCell>
+                                            <TableCell>
+                                                <Badge
+                                                    variant="outline"
+                                                    className={order.side === "buy" ? "border-emerald-500 text-emerald-500" : "border-red-500 text-red-500"}
+                                                >
+                                                    {order.side}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell className="font-mono">₹ {order.price}</TableCell>
+                                            <TableCell className="text-muted-foreground">{type}</TableCell>
+                                            <TableCell>{order.filled}</TableCell>
+                                            <TableCell>{order.rQuantity}</TableCell>
+                                            <TableCell className="text-right">
+                                                <Button variant="destructive" size="sm">Cancel</Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    )) : <Loader message="Loading open orders" />}
+                                </TableBody>
+                            </Table>
+                        </TabsContent>
 
-                <TabsContent value="open" className="overflow-x-auto">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead> Qty</TableHead>
-                                <TableHead>Side</TableHead>
-                                <TableHead>Price</TableHead>
-                                <TableHead>Market</TableHead>
-                                <TableHead>Filled</TableHead>
-                                <TableHead>Remaining</TableHead>
-                                <TableHead className="text-right">Action</TableHead>
-                            </TableRow>
-                        </TableHeader>
-
-                        <TableBody>
-                            {openOrders ? openOrders.map((order) => {
-                                return (
-                                    <TableRow key={order.orderId}>
-                                        <TableCell className="font-medium">
-                                            {order.quantity}
-                                        </TableCell>
-
-                                        <TableCell>
-                                            <Badge
-                                                variant="outline"
-                                                className={
-                                                    order.side === "buy"
-                                                        ? "border-green-600 text-green-600"
-                                                        : "border-red-600 text-red-600"
-                                                }
-                                            >
-                                                {order.side}
-                                            </Badge>
-                                        </TableCell>
-
-                                        <TableCell>₹ {order.price}</TableCell>
-
-                                        <TableCell className="text-muted-foreground">
-                                            {type}
-                                        </TableCell>
-
-                                        <TableCell>{order.filled}</TableCell>
-
-                                        <TableCell>{order.rQuantity}</TableCell>
-
-                                        <TableCell className="text-right">
-                                            <Button
-                                                variant="destructive"
-                                                size="sm"
-                                            >
-                                                Cancel
-                                            </Button>
+                        <TabsContent value="executed" className="overflow-x-auto mt-4">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Qty</TableHead>
+                                        <TableHead>Side</TableHead>
+                                        <TableHead>Price</TableHead>
+                                        <TableHead>Market</TableHead>
+                                        <TableHead>Filled</TableHead>
+                                        <TableHead>Remaining</TableHead>
+                                        <TableHead className="text-right">Action</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    <TableRow>
+                                        <TableCell colSpan={7} className="text-center text-muted-foreground py-10">
+                                            No executed orders yet
                                         </TableCell>
                                     </TableRow>
-                                )
-                            }) : <Loader message="Loading open orders" />}
-                        </TableBody>
-                    </Table>
-
-                </TabsContent>
-
-                <TabsContent value="executed" className="overflow-x-auto">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Qty</TableHead>
-                                <TableHead>Side</TableHead>
-                                <TableHead>Price</TableHead>
-                                <TableHead>Market</TableHead>
-                                <TableHead>Filled</TableHead>
-                                <TableHead>Remaining</TableHead>
-                                <TableHead className="text-right">Action</TableHead>
-                            </TableRow>
-                        </TableHeader>
-
-                        <TableBody>
-                            <h2>Executed QTY</h2>
-                        </TableBody>
-                    </Table>
-
-                </TabsContent>
-            </Tabs>
-
-        </Card>
-
+                                </TableBody>
+                            </Table>
+                        </TabsContent>
+                    </Tabs>
+                </Card>
+            </div>
+        </div>
     )
 }
