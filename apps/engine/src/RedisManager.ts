@@ -13,7 +13,10 @@ type DbMessage = {
         quantity: string,
         quoteQuantity: string,
         timestamp: number,
-        market: string
+        market: string,
+        takerUserId: string,
+        makerUserId: string,
+        takerSide: "buy" | "sell"
     }
 } | {
     type: typeof ORDER_UPDATE,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,22 +18,35 @@ type Balance = { available: number; locked: number };
 type AccountBalances = { INR: Balance; TATA: Balance };
 
 export function TradingOrderForm({ market = "TATA_INR" }: { market?: string }) {
+    const router = useRouter();
     const [side, setSide] = useState<"buy" | "sell">("buy");
     const [orderType, setOrderType] = useState<"limit" | "market">("limit");
     const [price, setPrice] = useState("87547.5");
     const [quantity, setQuantity] = useState("0");
     const [execute, setExecute] = useState<Execute>(Execute.DONE);
     const [balance, setBalance] = useState<AccountBalances | null>(null);
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [userId, setUserId] = useState<string>("3");
 
     useEffect(() => {
-        axios.get<AccountBalances>("http://localhost:8000/api/v1/balance?userId=5").then(res => setBalance(res.data));
-        SignalingManager.getInstance().sendMessage({ method: "SUBSCRIBE", params: [`balance@5`] });
-        SignalingManager.getInstance().registerCallback("balance", (updated: AccountBalances) => setBalance(updated), `BALANCE-5`);
-        return () => {
-            SignalingManager.getInstance().deRegisterCallback("balance", `BALANCE-5`);
-            SignalingManager.getInstance().sendMessage({ method: "UNSUBSCRIBE", params: [`balance@5`] });
-        };
+        const raw = localStorage.getItem("user");
+        if (raw) {
+            const user = JSON.parse(raw);
+            setUserId(user.id);
+        }
+        setIsAuthenticated(!!localStorage.getItem("token"));
     }, []);
+
+    useEffect(() => {
+        if (!userId) return;
+        axios.get<AccountBalances>(`http://localhost:8000/api/v1/balance?userId=${userId}`).then(res => setBalance(res.data));
+        SignalingManager.getInstance().sendMessage({ method: "SUBSCRIBE", params: [`balance@${userId}`] });
+        SignalingManager.getInstance().registerCallback("balance", (updated: AccountBalances) => setBalance(updated), `BALANCE-${userId}`);
+        return () => {
+            SignalingManager.getInstance().deRegisterCallback("balance", `BALANCE-${userId}`);
+            SignalingManager.getInstance().sendMessage({ method: "UNSUBSCRIBE", params: [`balance@${userId}`] });
+        };
+    }, [userId]);
 
     const orderValue = (parseFloat(price) || 0) * (parseFloat(quantity) || 0);
 
@@ -94,26 +108,35 @@ export function TradingOrderForm({ market = "TATA_INR" }: { market?: string }) {
             </div>
 
             {/* Submit */}
-            <button
-                className={`w-full py-2.5 rounded-md font-semibold transition-colors ${side === "buy" ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-red-600 hover:bg-red-700 text-white"}`}
-                onClick={async () => {
-                    try {
-                        setExecute(Execute.PENDING);
-                        const response = await axios.post("http://localhost:8000/api/v1/order", { market, price, quantity, side, userId: "5" }, { headers: { "Content-Type": "application/json" } });
-                        const { executedQty, rQuantity } = response.data;
-                        toast.success("Trade done successfully ✅", { description: `Executed: ${executedQty}  Remaining: ${rQuantity}`, className: "trade-success-toast" });
-                    } catch {
-                        toast.error("Error ❌", { description: "Something went wrong.", className: "trade-error-toast" });
-                    } finally {
-                        setExecute(Execute.DONE);
-                    }
-                }}
-            >
-                <div className="flex items-center justify-center gap-3">
-                    Execute The {side === "buy" ? "Buy" : "Sell"}
-                    {execute === Execute.PENDING && <Spinner className="h-4 w-4" />}
-                </div>
-            </button>
+            {isAuthenticated ? (
+                <button
+                    className={`w-full py-2.5 rounded-md font-semibold transition-colors ${side === "buy" ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-red-600 hover:bg-red-700 text-white"}`}
+                    onClick={async () => {
+                        try {
+                            setExecute(Execute.PENDING);
+                            const response = await axios.post("http://localhost:8000/api/v1/order", { market, price, quantity, side, userId }, { headers: { "Content-Type": "application/json" } });
+                            const { executedQty, rQuantity } = response.data;
+                            toast.success("Trade done successfully ✅", { description: `Executed: ${executedQty}  Remaining: ${rQuantity}`, className: "trade-success-toast" });
+                        } catch {
+                            toast.error("Error ❌", { description: "Something went wrong.", className: "trade-error-toast" });
+                        } finally {
+                            setExecute(Execute.DONE);
+                        }
+                    }}
+                >
+                    <div className="flex items-center justify-center gap-3">
+                        Execute The {side === "buy" ? "Buy" : "Sell"}
+                        {execute === Execute.PENDING && <Spinner className="h-4 w-4" />}
+                    </div>
+                </button>
+            ) : (
+                <button
+                    className="w-full py-2.5 rounded-md font-semibold transition-colors bg-muted border border-border text-foreground hover:bg-accent"
+                    onClick={() => router.push("/signin")}
+                >
+                    Sign In to Trade
+                </button>
+            )}
         </Card>
     );
 }

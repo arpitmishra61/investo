@@ -17,6 +17,7 @@ import { Loader } from "../components/Loader"
 import Link from "next/link"
 import { TrendingUpIcon } from "lucide-react"
 import { ThemeToggle } from "../components/ThemeToggle"
+import { UserMenu } from "../components/UserMenu"
 
 type OpenOrder = {
     "price": number,
@@ -28,16 +29,45 @@ type OpenOrder = {
     "timeStamp": number,
     "rQuantity": number
 }
+
+type ExecutedOrder = {
+    id: number,
+    time: number,
+    market: string,
+    price: string,
+    qty: string,
+    side: "buy" | "sell"
+}
+
 const type = "TATA"
 
 export default function OpenOrdersTable() {
+    const [openOrders, setOpenOrders] = useState<OpenOrder[] | null>(null);
+    const [executedOrders, setExecutedOrders] = useState<ExecutedOrder[] | null>(null);
+    const [orderType, setOrderType] = useState<"open" | "executed">("open");
+    const [userId, setUserId] = useState<string | null>(null);
+
     useEffect(() => {
-        axios.get<OpenOrder[]>("http://localhost:8000/api/v1/order/open?userId=5&market=TATA_INR").then(res => {
+        const raw = localStorage.getItem("user");
+        if (raw) {
+            const user = JSON.parse(raw);
+            setUserId(user.id);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (!userId) return;
+        axios.get<OpenOrder[]>(`http://localhost:8000/api/v1/order/open?userId=${userId}&market=TATA_INR`).then(res => {
             setOpenOrders(res.data)
         })
-    }, [])
-    const [openOrders, setOpenOrders] = useState<OpenOrder[] | null>(null);
-    const [orderType, setOrderType] = useState<"open" | "executed">("open");
+    }, [userId])
+
+    useEffect(() => {
+        if (!userId) return;
+        axios.get<{ orders: ExecutedOrder[] }>(`http://localhost:8000/api/v1/order/executed_orders?userId=${userId}`).then(res => {
+            setExecutedOrders(res.data.orders)
+        })
+    }, [userId])
 
     return (
         <div className="min-h-screen bg-background text-foreground">
@@ -51,7 +81,10 @@ export default function OpenOrdersTable() {
                         Trade<span className="text-emerald-500">Pi</span>
                     </span>
                 </Link>
-                <ThemeToggle />
+                <div className="flex items-center gap-3">
+                    <UserMenu />
+                    <ThemeToggle />
+                </div>
             </nav>
 
             <div className="mx-auto max-w-5xl px-4 sm:px-6 py-10">
@@ -116,21 +149,40 @@ export default function OpenOrdersTable() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>Qty</TableHead>
+                                        <TableHead>Time</TableHead>
+                                        <TableHead>Market</TableHead>
                                         <TableHead>Side</TableHead>
                                         <TableHead>Price</TableHead>
-                                        <TableHead>Market</TableHead>
-                                        <TableHead>Filled</TableHead>
-                                        <TableHead>Remaining</TableHead>
-                                        <TableHead className="text-right">Action</TableHead>
+                                        <TableHead>Qty</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    <TableRow>
-                                        <TableCell colSpan={7} className="text-center text-muted-foreground py-10">
-                                            No executed orders yet
-                                        </TableCell>
-                                    </TableRow>
+                                    {executedOrders ? (
+                                        executedOrders.length > 0 ? executedOrders.map((order) => (
+                                            <TableRow key={order.id}>
+                                                <TableCell className="text-muted-foreground">
+                                                    {new Date(order.time).toLocaleString()}
+                                                </TableCell>
+                                                <TableCell className="text-muted-foreground">{order.market}</TableCell>
+                                                <TableCell>
+                                                    <Badge
+                                                        variant="outline"
+                                                        className={order.side === "buy" ? "border-emerald-500 text-emerald-500" : "border-red-500 text-red-500"}
+                                                    >
+                                                        {order.side}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell className="font-mono">₹ {order.price}</TableCell>
+                                                <TableCell className="font-medium">{order.qty}</TableCell>
+                                            </TableRow>
+                                        )) : (
+                                            <TableRow>
+                                                <TableCell colSpan={5} className="text-center text-muted-foreground py-10">
+                                                    No executed orders yet
+                                                </TableCell>
+                                            </TableRow>
+                                        )
+                                    ) : <Loader message="Loading executed orders" />}
                                 </TableBody>
                             </Table>
                         </TabsContent>

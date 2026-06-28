@@ -1,4 +1,4 @@
-import { prisma } from "@repo/database";
+import prisma from "@repo/database";
 import "dotenv/config";
 
 // The "trades" table itself is managed by `prisma migrate` (see packages/database/prisma).

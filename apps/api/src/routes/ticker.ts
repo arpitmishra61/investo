@@ -2,7 +2,7 @@ import { Router } from "express";
 import { RedisManager } from "../RedisManager";
 import { GET_CURRENT_PRICE } from "../types/index";
 import "dotenv/config";
-import { prisma } from "@repo/database";
+import prisma from "@repo/database";
 
 export const tradesRouter = Router();
 export type TickerDBRow = {

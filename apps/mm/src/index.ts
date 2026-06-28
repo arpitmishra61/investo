@@ -1,13 +1,12 @@
 import "dotenv/config";
 import axios from "axios";
 import { createClient } from "redis";
-import { PrismaClient } from "@prisma/client";
+import prisma from "@repo/database";
 
 const BASE_URL = process.env.API_URL ?? "http://localhost:8000";
-const USER_ID = "5";
+const USER_ID = "3";
 
 const redis = createClient({ url: process.env.REDIS_URL });
-const prisma = new PrismaClient();
 
 type MarketConfig = {
   market: string;

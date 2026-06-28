@@ -1,11 +1,29 @@
+datasource db {
+  provider = "postgresql"
+}
+
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client"
+  output          = "./generated"
   previewFeatures = ["views"]
 }
 
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+model User {
+  id        BigInt   @id @default(autoincrement())
+  email     String   @unique
+  name      String?
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  type      UserType @default(USER)
+  trades    Trade[]
+  fills     Fill[]
+}
+
+enum UserType {
+  USER
+  ADMIN
+  MARKET_MAKER
 }
 
 // Plain table, managed normally via `prisma migrate`. Only the hypertable
@@ -22,9 +40,30 @@ model Trade {
   qty          Decimal? @db.Decimal(18, 2)
   currencyCode String?  @map("currency_code") @db.VarChar(10)
   side         String   @db.VarChar(4)
+  userId       BigInt?  @map("user_id")
+  user         User?    @relation(fields: [userId], references: [id])
 
   @@id([id, time, market])
   @@map("trades")
+}
+
+// Per-user execution ledger. Each market match writes TWO fill rows (one per
+// side / participant), so a user's executed-orders history is a simple
+// `where user_id = X`. Kept separate from the public `trades` tape so that
+// duplicate per-user rows never distort kline/volume aggregates.
+model Fill {
+  id      BigInt   @id @default(autoincrement())
+  time    DateTime @db.Timestamptz(6)
+  market  String   @db.VarChar(20)
+  price   Float
+  qty     Decimal  @db.Decimal(18, 2)
+  side    String   @db.VarChar(4)
+  userId  BigInt   @map("user_id")
+  tradeId BigInt   @map("trade_id")
+  user    User     @relation(fields: [userId], references: [id])
+
+  @@index([userId, time])
+  @@map("fills")
 }
 
 // Stores last known price per market for MM cold-start recovery

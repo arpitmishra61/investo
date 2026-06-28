@@ -8,6 +8,7 @@ import { TrendingUpIcon, ArrowUpRight } from "lucide-react";
 import { Sparkline } from "@/app/components/sparkline";
 import { MarketRow } from "@/lib/market";
 import { ThemeToggle } from "@/app/components/ThemeToggle";
+import { UserMenu } from "@/app/components/UserMenu";
 
 const MARKETS = [
   { market: "GOOGLE_INR", symbol: "GOOGLE", icon: "/google_logo.svg" },
@@ -44,13 +45,14 @@ export default function MarketsPage() {
           </span>
         </Link>
         <div className="flex items-center gap-3">
-          <ThemeToggle />
           <Link
             href="/orders"
             className="rounded-full border border-border bg-muted px-4 py-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-all"
           >
-            Open Orders
+            Orders
           </Link>
+          <UserMenu />
+          <ThemeToggle />
         </div>
       </nav>
 

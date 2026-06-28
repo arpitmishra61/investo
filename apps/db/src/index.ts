@@ -1,5 +1,5 @@
 import { createClient } from "redis";
-import { PrismaClient } from "@prisma/client";
+import prisma from "@repo/database";
 import { DbMessage } from "./types";
 import "dotenv/config";
 
@@ -15,38 +15,49 @@ type TradeRow = {
   side: string;
 };
 
+type FillRow = {
+  time: Date;
+  market: string;
+  price: number;
+  qty: string;
+  side: string;
+  userId: bigint;
+  tradeId: bigint;
+};
+
 let batch: TradeRow[] = [];
-let prisma: PrismaClient | null = null;
+let fillBatch: FillRow[] = [];
 let flushTimer: ReturnType<typeof setInterval> | null = null;
 let polling = false;
-
-function getPrisma(): PrismaClient {
-  if (!prisma) {
-    prisma = new PrismaClient();
-    console.log("Neon connection opened");
-  }
-  return prisma;
-}
 
 async function closePrisma() {
   if (prisma) {
     await prisma.$disconnect();
-    prisma = null;
     console.log("Neon connection closed");
   }
 }
 
 async function flush() {
-  if (batch.length === 0) return;
+  if (batch.length === 0 && fillBatch.length === 0) return;
   const rows = batch.splice(0);
-  await getPrisma().trade.createMany({ data: rows }).catch(console.error);
-  console.log(`flushed ${rows.length} trades`);
+  const fillRows = fillBatch.splice(0);
+  if (rows.length) {
+    await prisma.trade.createMany({ data: rows }).catch((e) => console.error("[db] trade flush error:", e?.message ?? e));
+  }
+  if (fillRows.length) {
+    await prisma.fill.createMany({ data: fillRows }).catch((e) => console.error("[db] fill flush error:", e?.message ?? e));
+  }
+  console.log(`flushed ${rows.length} trades, ${fillRows.length} fills`);
 }
 
 async function refreshViews() {
-  const p = getPrisma();
-  await p.$executeRawUnsafe("REFRESH MATERIALIZED VIEW klines_3s").catch(console.error);
-  await p.$executeRawUnsafe("REFRESH MATERIALIZED VIEW klines_1m").catch(console.error);
+  const p = prisma;
+  await p
+    .$executeRawUnsafe("REFRESH MATERIALIZED VIEW klines_3s")
+    .catch(console.error);
+  await p
+    .$executeRawUnsafe("REFRESH MATERIALIZED VIEW klines_1m")
+    .catch(console.error);
 }
 
 function startFlushing() {
@@ -85,15 +96,52 @@ async function pollTrades(redisClient: ReturnType<typeof createClient>) {
 
     const res: DbMessage = JSON.parse(response);
     if (res.type === "TRADE_ADDED") {
-      const { price, quantity, timestamp, isBuyerMaker, market } = res.data;
-      batch.push({
-        time: new Date(timestamp),
+      const {
+        id,
+        price,
+        quantity,
+        timestamp,
+        isBuyerMaker,
         market,
-        price: parseFloat(price),
+        takerUserId,
+        makerUserId,
+        takerSide,
+      } = res.data;
+      const time = new Date(timestamp);
+      const priceNum = parseFloat(price);
+
+      // public tape: one row per match (feeds klines)
+      batch.push({
+        time,
+        market,
+        price: priceNum,
         qty: quantity,
         currencyCode: "$",
         side: isBuyerMaker ? "buy" : "sell",
       });
+
+      // per-user ledger: one row per participant (taker + maker)
+      const makerSide = takerSide === "buy" ? "sell" : "buy";
+      fillBatch.push(
+        {
+          time,
+          market,
+          price: priceNum,
+          qty: quantity,
+          side: takerSide,
+          userId: BigInt(takerUserId),
+          tradeId: BigInt(id),
+        },
+        {
+          time,
+          market,
+          price: priceNum,
+          qty: quantity,
+          side: makerSide,
+          userId: BigInt(makerUserId),
+          tradeId: BigInt(id),
+        },
+      );
 
       if (batch.length >= BATCH_SIZE) await flush();
     }
@@ -109,10 +157,18 @@ async function goToSleep() {
   await flush();
 
   // final view refresh so klines are up to date before going idle
-  await getPrisma().$executeRawUnsafe("REFRESH MATERIALIZED VIEW klines_3s").catch(console.error);
-  await getPrisma().$executeRawUnsafe("REFRESH MATERIALIZED VIEW klines_1m").catch(console.error);
-  await getPrisma().$executeRawUnsafe("REFRESH MATERIALIZED VIEW klines_1h").catch(console.error);
-  await getPrisma().$executeRawUnsafe("REFRESH MATERIALIZED VIEW klines_1w").catch(console.error);
+  await prisma
+    .$executeRawUnsafe("REFRESH MATERIALIZED VIEW klines_3s")
+    .catch(console.error);
+  await prisma
+    .$executeRawUnsafe("REFRESH MATERIALIZED VIEW klines_1m")
+    .catch(console.error);
+  await prisma
+    .$executeRawUnsafe("REFRESH MATERIALIZED VIEW klines_1h")
+    .catch(console.error);
+  await prisma
+    .$executeRawUnsafe("REFRESH MATERIALIZED VIEW klines_1w")
+    .catch(console.error);
   console.log("views refreshed");
 
   await closePrisma();

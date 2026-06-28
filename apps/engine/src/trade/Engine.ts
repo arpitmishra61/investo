@@ -306,7 +306,7 @@ console.log("FsdfgsgsG",orderbook?.currentPrice)
       orderbook.updateCurrentPrice(fills)
     }
     this.updateBalance(userId, baseAsset, quoteAsset, side, fills, executedQty);
-    this.createDbTrades(fills, market, userId);
+    this.createDbTrades(fills, market, userId, side);
     this.updateDbOrders(order, executedQty, fills, market);
     this.publisWsDepthUpdates(fills, price, side, market);
     this.publishWsTrades(fills, userId, market);
@@ -344,7 +344,12 @@ console.log("FsdfgsgsG",orderbook?.currentPrice)
     });
   }
 
-  createDbTrades(fills: Fill[], market: string, userId: string) {
+  createDbTrades(
+    fills: Fill[],
+    market: string,
+    userId: string,
+    side: "buy" | "sell"
+  ) {
     fills.forEach((fill) => {
       RedisManager.getInstance().pushMessage({
         type: TRADE_ADDED,
@@ -356,6 +361,11 @@ console.log("FsdfgsgsG",orderbook?.currentPrice)
           quantity: fill.qty.toString(),
           quoteQuantity: (fill.qty * Number(fill.price)).toString(),
           timestamp: Date.now(),
+          // taker = the user whose incoming order triggered this fill (`side`);
+          // maker = the resting order's owner on the opposite side.
+          takerUserId: userId,
+          makerUserId: fill.otherUserId,
+          takerSide: side,
         },
       });
     });
@@ -600,7 +610,7 @@ console.log("FsdfgsgsG",orderbook?.currentPrice)
   }
 
   setBaseBalances() {
-    for (const userId of ["1", "2", "5"]) {
+    for (const userId of ["1", "2", "3"]) {
       this.balances.set(userId, {
         [BASE_CURRENCY]: {
           available: 10000000,

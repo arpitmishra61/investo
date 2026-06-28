@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { prisma } from "@repo/database";
+import prisma from "@repo/database";
 import "dotenv/config";
 
 export const tradesRouter = Router();
@@ -14,7 +14,10 @@ tradesRouter.get("/", async (req, res) => {
     endOfDay.setDate(endOfDay.getDate() + 1);
 
     const rows = await prisma.trade.findMany({
-      where: { market: market as string, time: { gte: startOfDay, lte: endOfDay } },
+      where: {
+        market: market as string,
+        time: { gte: startOfDay, lte: endOfDay },
+      },
       take: 10,
     });
     const trades = rows.map((row) => ({
