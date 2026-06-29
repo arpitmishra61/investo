@@ -5,6 +5,7 @@ import "dotenv/config";
 
 const BATCH_SIZE = 20;
 const FLUSH_INTERVAL_MS = 10_000;
+const IDLE_TIMEOUT_MS = 30_000; // sleep after 30s with no incoming trades
 
 type TradeRow = {
   time: Date;
@@ -41,11 +42,19 @@ async function flush() {
   if (batch.length === 0 && fillBatch.length === 0) return;
   const rows = batch.splice(0);
   const fillRows = fillBatch.splice(0);
+  console.log(
+    ` ${fillRows.length} fills`,
+    fillRows.map((r) => r.userId),
+  );
   if (rows.length) {
-    await prisma.trade.createMany({ data: rows }).catch((e) => console.error("[db] trade flush error:", e?.message ?? e));
+    await prisma.trade
+      .createMany({ data: rows })
+      .catch((e) => console.error("[db] trade flush error:", e?.message ?? e));
   }
   if (fillRows.length) {
-    await prisma.fill.createMany({ data: fillRows }).catch((e) => console.error("[db] fill flush error:", e?.message ?? e));
+    await prisma.fill
+      .createMany({ data: fillRows })
+      .catch((e) => console.error("[db] fill flush error:", e?.message ?? e));
   }
   console.log(`flushed ${rows.length} trades, ${fillRows.length} fills`);
 }
@@ -86,14 +95,23 @@ async function pollTrades(redisClient: ReturnType<typeof createClient>) {
 
   console.log("DB processor awake, polling trades…");
 
+  let lastActivityAt = Date.now();
+
   while (polling) {
     const response = await redisClient.rPop("db_processor").catch(() => null);
 
     if (!response) {
+      // no trades for IDLE_TIMEOUT_MS → release Neon compute even if no db:sleep arrives
+      if (Date.now() - lastActivityAt >= IDLE_TIMEOUT_MS) {
+        console.log("DB processor idle 30s — going to sleep");
+        await goToSleep();
+        break;
+      }
       await sleep(500);
       continue;
     }
 
+    lastActivityAt = Date.now();
     const res: DbMessage = JSON.parse(response);
     if (res.type === "TRADE_ADDED") {
       const {

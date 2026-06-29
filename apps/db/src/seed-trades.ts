@@ -1,14 +1,12 @@
-import { PrismaClient } from "@prisma/client";
+import prisma from "@repo/database";
 import "dotenv/config";
-
-const prisma = new PrismaClient();
 
 // IST is UTC+5:30. Market "pre-open" window: 05:00–06:00 IST = 23:30–00:30 UTC (prev day)
 const INTERVAL_SEC = 10; // one trade every 10 seconds → 360 rows/market for 1hr
 
 const markets = [
   { market: "GOOGLE_INR", startPrice: 14000, volatility: 8 },
-  { market: "META_INR",   startPrice: 32000, volatility: 20 },
+  { market: "META_INR", startPrice: 32000, volatility: 20 },
 ];
 
 function getWindowUTC(): { start: Date; end: Date } {
@@ -17,11 +15,14 @@ function getWindowUTC(): { start: Date; end: Date } {
   // today 05:00 IST in UTC = today 23:30 UTC previous calendar day
   const istOffsetMs = 5.5 * 60 * 60 * 1000;
   const todayMidnightIST = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) + istOffsetMs,
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) +
+      istOffsetMs,
   );
   // 05:00 IST = midnight IST + 5h
-  const windowStart = new Date(todayMidnightIST.getTime() - istOffsetMs + 5 * 60 * 60 * 1000);
-  const windowEnd   = new Date(windowStart.getTime() + 60 * 60 * 1000); // +1 hour
+  const windowStart = new Date(
+    todayMidnightIST.getTime() - istOffsetMs + 5 * 60 * 60 * 1000,
+  );
+  const windowEnd = new Date(windowStart.getTime() + 60 * 60 * 1000); // +1 hour
   return { start: windowStart, end: windowEnd };
 }
 
@@ -29,7 +30,9 @@ async function seedTrades() {
   const { start, end } = getWindowUTC();
   console.log(`Seeding window: ${start.toISOString()} → ${end.toISOString()}`);
 
-  const steps = Math.floor((end.getTime() - start.getTime()) / (INTERVAL_SEC * 1000));
+  const steps = Math.floor(
+    (end.getTime() - start.getTime()) / (INTERVAL_SEC * 1000),
+  );
 
   for (const { market, startPrice, volatility } of markets) {
     const { count } = await prisma.trade.deleteMany({ where: { market } });
@@ -45,6 +48,7 @@ async function seedTrades() {
       qty: string;
       currencyCode: string;
       side: string;
+      userId: bigint;
     }[] = [];
 
     for (let i = 0; i < steps; i++) {
@@ -58,6 +62,7 @@ async function seedTrades() {
         qty: (0.3 + Math.random() * 1.5).toFixed(2),
         currencyCode: "$",
         side: Math.random() < 0.5 ? "buy" : "sell",
+        userId: 3n, // market maker
       });
 
       if (rows.length === 500) {
