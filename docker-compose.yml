@@ -2,17 +2,14 @@
 # Dashboard is NOT here — it deploys to Vercel and points at this box's
 # public https/wss endpoints (see Caddyfile).
 #
-# All five Node services share one image (built from ./Dockerfile) and only
-# differ by working_dir + command. They talk to redis + timescaledb over the
-# internal compose network, so Redis stays on localhost-latency next to the
-# engine's tight rPop loop.
+# Database is Neon (managed Postgres/TimescaleDB) — no local DB container.
+# Only Redis is self-hosted here (engine polls it in a tight loop so it
+# must stay on localhost-latency next to the engine).
 #
 # Resource budget is sized for Always Free Ampere A1 = 2 OCPU / 12 GB RAM.
 # mem_limit = hard cap (container killed if exceeded), mem_reservation = the
-# soft floor the scheduler guarantees. Reservations sum to ~3.2 GB, leaving
-# headroom for the OS; limits can overlap since services don't all peak at once.
-# NODE_OPTIONS caps the V8 heap *under* each mem_limit so Node self-GCs instead
-# of getting OOM-killed by the kernel.
+# soft floor the scheduler guarantees. NODE_OPTIONS caps the V8 heap under
+# each mem_limit so Node self-GCs instead of getting OOM-killed by the kernel.
 
 x-node-app: &node-app
   build:
@@ -24,51 +21,18 @@ x-node-app: &node-app
   depends_on:
     redis:
       condition: service_started
-    timescaledb:
-      condition: service_healthy
 
 services:
   redis:
     image: redis:7-alpine
     container_name: investo-redis
     restart: unless-stopped
-    # maxmemory keeps Redis itself bounded; it's mostly transient queues/pubsub.
-    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "384mb", "--maxmemory-policy", "noeviction"]
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "512mb", "--maxmemory-policy", "noeviction"]
     volumes:
       - redis-data:/data
     cpus: 0.50
-    mem_limit: 512m
+    mem_limit: 640m
     mem_reservation: 128m
-    # Not published to the host — only the compose network reaches it.
-
-  timescaledb:
-    image: timescale/timescaledb:latest-pg16
-    container_name: investo-timescaledb
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-      # Keep Postgres' own memory modest so it fits the cap.
-      POSTGRES_INITDB_ARGS: ""
-    command:
-      - "postgres"
-      - "-c"
-      - "shared_buffers=512MB"
-      - "-c"
-      - "effective_cache_size=1GB"
-      - "-c"
-      - "max_connections=50"
-    volumes:
-      - timescale-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-    cpus: 1.00
-    mem_limit: 3g
-    mem_reservation: 1500m
 
   # ---- Node services (shared image) ----
 
@@ -78,11 +42,11 @@ services:
     working_dir: /app/apps/api
     command: ["tsx", "src/index.ts"]
     environment:
-      NODE_OPTIONS: "--max-old-space-size=320"
+      NODE_OPTIONS: "--max-old-space-size=512"
     ports:
-      - "8000:8000"          # Caddy proxies https://api.<domain> -> here
+      - "8000:8000"
     cpus: 0.50
-    mem_limit: 512m
+    mem_limit: 768m
     mem_reservation: 256m
 
   engine:
@@ -92,12 +56,11 @@ services:
     command: ["tsx", "src/index.ts"]
     environment:
       WITH_SNAPSHOT: "true"
-      # Engine holds the orderbooks in memory — give it the largest heap.
-      NODE_OPTIONS: "--max-old-space-size=768"
+      NODE_OPTIONS: "--max-old-space-size=1536"
     volumes:
-      - engine-snapshot:/app/apps/engine   # persists snapshot.json across restarts
+      - engine-snapshot:/app/apps/engine
     cpus: 0.75
-    mem_limit: 1g
+    mem_limit: 2g
     mem_reservation: 512m
 
   ws:
@@ -106,11 +69,11 @@ services:
     working_dir: /app/apps/ws
     command: ["tsx", "src/index.ts"]
     environment:
-      NODE_OPTIONS: "--max-old-space-size=320"
+      NODE_OPTIONS: "--max-old-space-size=512"
     ports:
-      - "5001:5001"          # Caddy proxies wss://ws.<domain> -> here
+      - "5001:5001"
     cpus: 0.50
-    mem_limit: 512m
+    mem_limit: 768m
     mem_reservation: 256m
 
   mm:
@@ -119,9 +82,9 @@ services:
     working_dir: /app/apps/mm
     command: ["tsx", "src/index.ts"]
     environment:
-      NODE_OPTIONS: "--max-old-space-size=256"
+      NODE_OPTIONS: "--max-old-space-size=384"
     cpus: 0.40
-    mem_limit: 384m
+    mem_limit: 512m
     mem_reservation: 192m
 
   db:
@@ -130,18 +93,16 @@ services:
     working_dir: /app/apps/db
     command: ["tsx", "src/index.ts"]
     environment:
-      NODE_OPTIONS: "--max-old-space-size=320"
+      NODE_OPTIONS: "--max-old-space-size=512"
     cpus: 0.50
-    mem_limit: 512m
+    mem_limit: 768m
     mem_reservation: 256m
-    # Ofelia reads these labels to schedule cron jobs (times are UTC).
     labels:
       ofelia.enabled: "true"
-      # Daily trade rotation at 00:30 UTC (06:00 IST) — see rotate-trades.ts.
       ofelia.job-exec.rotate-trades.schedule: "0 30 0 * * *"
       ofelia.job-exec.rotate-trades.command: "sh -c 'cd /app/apps/db && tsx src/rotate-trades.ts'"
 
-  # ---- Cron scheduler (Docker-native) ----
+  # ---- Cron scheduler ----
   cron:
     image: mcuadros/ofelia:latest
     container_name: investo-cron
@@ -155,8 +116,6 @@ services:
     mem_limit: 64m
 
   # ---- TLS reverse proxy ----
-  # Vercel serves the dashboard over https, so the browser needs https/wss
-  # here or it blocks mixed content. Caddy auto-provisions Let's Encrypt certs.
   caddy:
     image: caddy:2-alpine
     container_name: investo-caddy
@@ -176,7 +135,6 @@ services:
 
 volumes:
   redis-data:
-  timescale-data:
   engine-snapshot:
   caddy-data:
   caddy-config:
