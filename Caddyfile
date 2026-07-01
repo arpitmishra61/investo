@@ -1,0 +1,11 @@
+investobackend.devinsight {
+	# API routes — all your Express endpoints are under /api/
+	handle /api/* {
+		reverse_proxy api:8000
+	}
+
+	# Everything else — WebSocket connections
+	handle {
+		reverse_proxy ws:5001
+	}
+}

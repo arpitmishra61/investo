@@ -1,0 +1,182 @@
+# Investo backend stack for the Oracle Cloud (Ampere A1) instance.
+# Dashboard is NOT here — it deploys to Vercel and points at this box's
+# public https/wss endpoints (see Caddyfile).
+#
+# All five Node services share one image (built from ./Dockerfile) and only
+# differ by working_dir + command. They talk to redis + timescaledb over the
+# internal compose network, so Redis stays on localhost-latency next to the
+# engine's tight rPop loop.
+#
+# Resource budget is sized for Always Free Ampere A1 = 2 OCPU / 12 GB RAM.
+# mem_limit = hard cap (container killed if exceeded), mem_reservation = the
+# soft floor the scheduler guarantees. Reservations sum to ~3.2 GB, leaving
+# headroom for the OS; limits can overlap since services don't all peak at once.
+# NODE_OPTIONS caps the V8 heap *under* each mem_limit so Node self-GCs instead
+# of getting OOM-killed by the kernel.
+
+x-node-app: &node-app
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: investo-backend:latest
+  restart: unless-stopped
+  env_file: .env
+  depends_on:
+    redis:
+      condition: service_started
+    timescaledb:
+      condition: service_healthy
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: investo-redis
+    restart: unless-stopped
+    # maxmemory keeps Redis itself bounded; it's mostly transient queues/pubsub.
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "384mb", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redis-data:/data
+    cpus: 0.50
+    mem_limit: 512m
+    mem_reservation: 128m
+    # Not published to the host — only the compose network reaches it.
+
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: investo-timescaledb
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      # Keep Postgres' own memory modest so it fits the cap.
+      POSTGRES_INITDB_ARGS: ""
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=512MB"
+      - "-c"
+      - "effective_cache_size=1GB"
+      - "-c"
+      - "max_connections=50"
+    volumes:
+      - timescale-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    cpus: 1.00
+    mem_limit: 3g
+    mem_reservation: 1500m
+
+  # ---- Node services (shared image) ----
+
+  api:
+    <<: *node-app
+    container_name: investo-api
+    working_dir: /app/apps/api
+    command: ["tsx", "src/index.ts"]
+    environment:
+      NODE_OPTIONS: "--max-old-space-size=320"
+    ports:
+      - "8000:8000"          # Caddy proxies https://api.<domain> -> here
+    cpus: 0.50
+    mem_limit: 512m
+    mem_reservation: 256m
+
+  engine:
+    <<: *node-app
+    container_name: investo-engine
+    working_dir: /app/apps/engine
+    command: ["tsx", "src/index.ts"]
+    environment:
+      WITH_SNAPSHOT: "true"
+      # Engine holds the orderbooks in memory — give it the largest heap.
+      NODE_OPTIONS: "--max-old-space-size=768"
+    volumes:
+      - engine-snapshot:/app/apps/engine   # persists snapshot.json across restarts
+    cpus: 0.75
+    mem_limit: 1g
+    mem_reservation: 512m
+
+  ws:
+    <<: *node-app
+    container_name: investo-ws
+    working_dir: /app/apps/ws
+    command: ["tsx", "src/index.ts"]
+    environment:
+      NODE_OPTIONS: "--max-old-space-size=320"
+    ports:
+      - "5001:5001"          # Caddy proxies wss://ws.<domain> -> here
+    cpus: 0.50
+    mem_limit: 512m
+    mem_reservation: 256m
+
+  mm:
+    <<: *node-app
+    container_name: investo-mm
+    working_dir: /app/apps/mm
+    command: ["tsx", "src/index.ts"]
+    environment:
+      NODE_OPTIONS: "--max-old-space-size=256"
+    cpus: 0.40
+    mem_limit: 384m
+    mem_reservation: 192m
+
+  db:
+    <<: *node-app
+    container_name: investo-db
+    working_dir: /app/apps/db
+    command: ["tsx", "src/index.ts"]
+    environment:
+      NODE_OPTIONS: "--max-old-space-size=320"
+    cpus: 0.50
+    mem_limit: 512m
+    mem_reservation: 256m
+    # Ofelia reads these labels to schedule cron jobs (times are UTC).
+    labels:
+      ofelia.enabled: "true"
+      # Daily trade rotation at 00:30 UTC (06:00 IST) — see rotate-trades.ts.
+      ofelia.job-exec.rotate-trades.schedule: "0 30 0 * * *"
+      ofelia.job-exec.rotate-trades.command: "sh -c 'cd /app/apps/db && tsx src/rotate-trades.ts'"
+
+  # ---- Cron scheduler (Docker-native) ----
+  cron:
+    image: mcuadros/ofelia:latest
+    container_name: investo-cron
+    restart: unless-stopped
+    depends_on:
+      - db
+    command: daemon --docker
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    cpus: 0.10
+    mem_limit: 64m
+
+  # ---- TLS reverse proxy ----
+  # Vercel serves the dashboard over https, so the browser needs https/wss
+  # here or it blocks mixed content. Caddy auto-provisions Let's Encrypt certs.
+  caddy:
+    image: caddy:2-alpine
+    container_name: investo-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - api
+      - ws
+    cpus: 0.25
+    mem_limit: 128m
+
+volumes:
+  redis-data:
+  timescale-data:
+  engine-snapshot:
+  caddy-data:
+  caddy-config:

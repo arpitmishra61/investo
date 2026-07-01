@@ -17,9 +17,9 @@ export class SubscriptionManager {
   private pubClient: RedisClientType;
 
   private constructor() {
-    this.redisClient = createClient();
+    this.redisClient = createClient({ url: process.env.REDIS_URL });
     this.redisClient.connect();
-    this.pubClient = createClient();
+    this.pubClient = createClient({ url: process.env.REDIS_URL });
     this.pubClient.connect();
   }
 

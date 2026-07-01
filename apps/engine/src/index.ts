@@ -4,7 +4,7 @@ import { CREATE_ORDER, MessageFromApi } from "./types/fromApi";
 
 async function main() {
   const engine = new Engine();
-  const redisClient = createClient();
+  const redisClient = createClient({ url: process.env.REDIS_URL });
   await redisClient.connect();
   console.log("connected to redis");
   type responseType = {

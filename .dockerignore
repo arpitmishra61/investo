@@ -1,0 +1,13 @@
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+**/generated
+.git
+.gitignore
+*.md
+apps/dashboard
+apps/docker-redis
+apps/engine/snapshot.json
+**/.env
+**/.env.*
