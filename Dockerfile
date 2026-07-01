@@ -16,7 +16,9 @@ COPY . .
 RUN npm install
 
 # Generate the Prisma client into packages/database/prisma/generated.
-RUN cd packages/database && npx prisma generate
+# DATABASE_URL is not available at build time so pass a dummy — prisma generate
+# only needs the schema, not a live connection.
+RUN cd packages/database && DATABASE_URL=postgresql://x:x@localhost:5432/x npx prisma generate
 
 # Default workdir/command are overridden per-service in docker-compose.yml.
 CMD ["tsx", "apps/api/src/index.ts"]
