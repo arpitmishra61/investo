@@ -7,6 +7,12 @@ import "dotenv/config";
 // and creating the `time_bucket`-based continuous-aggregate views. Safe to re-run.
 async function initializeDB() {
   await prisma.$executeRawUnsafe(`
+    CREATE EXTENSION IF NOT EXISTS timescaledb;
+  `);
+  await prisma.$executeRawUnsafe(`
+    SELECT create_hypertable('trades', 'time', 'market', 2, if_not_exists => TRUE);
+  `);
+  await prisma.$executeRawUnsafe(`
         CREATE MATERIALIZED VIEW IF NOT EXISTS klines_1m AS
         SELECT
             time_bucket('1 minute', time) AS bucket,
