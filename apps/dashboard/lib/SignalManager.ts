@@ -1,6 +1,7 @@
 import { Ticker } from "@repo/types/ticker";
+import { WS_URL } from "./config";
 
-export const BASE_URL = "ws://localhost:5001";
+export const BASE_URL = WS_URL;
 
 export class SignalingManager {
   private ws: WebSocket;
@@ -11,6 +12,7 @@ export class SignalingManager {
   private initialized: boolean = false;
 
   private constructor() {
+    console.log("BASE_URL", BASE_URL);
     this.ws = new WebSocket(BASE_URL);
     this.bufferedMessages = [];
     this.id = 1;

@@ -14,6 +14,7 @@
   ```
 
 ### Open the ports (two layers — both are required)
+
 1. **VCN Security List / NSG** (Oracle console): allow ingress TCP **80** and **443** from `0.0.0.0/0`.
 2. **Instance firewall** (Ubuntu images block by default):
    ```sh
@@ -21,7 +22,7 @@
    sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 443 -j ACCEPT
    sudo netfilter-persistent save
    ```
-Only 80/443 need to be public — 8000/5001 are reached through Caddy, and Redis/Postgres stay on the internal network.
+   Only 80/443 need to be public — 8000/5001 are reached through Caddy, and Redis/Postgres stay on the internal network.
 
 ---
 
@@ -33,6 +34,7 @@ cp .env.example .env
 # edit .env: set a strong POSTGRES_PASSWORD (and the same in DATABASE_URL)
 # edit Caddyfile: replace api.example.com / ws.example.com with your subdomains
 ```
+
 Point DNS **A records** for `api.<domain>` and `ws.<domain>` at the instance's public IP.
 
 ---
@@ -52,6 +54,7 @@ docker compose run --rm db npm run seed:db
 docker compose run --rm db npm run seed:users
 docker compose run --rm db npm run seed:trades
 ```
+
 > If `prisma migrate deploy` reports no migrations, use `npx prisma db push` instead.
 
 ---
@@ -76,6 +79,7 @@ Deploy `apps/dashboard` on Vercel with **Root Directory = `apps/dashboard`**, an
 NEXT_PUBLIC_API_URL = https://api.<domain>
 NEXT_PUBLIC_WS_URL  = wss://ws.<domain>
 ```
+
 > Confirm the actual env var names the dashboard reads (grep `NEXT_PUBLIC_` in `apps/dashboard`) and make sure the API's CORS `origin` allows your Vercel domain — see `apps/api/src/index.ts`.
 
 ---
@@ -83,6 +87,7 @@ NEXT_PUBLIC_WS_URL  = wss://ws.<domain>
 ## Cron
 
 `rotate-trades.ts` runs daily at **00:30 UTC (06:00 IST)** via the `cron` (Ofelia) container, which `docker exec`s into `db`. Adjust the schedule on the `db` service's `ofelia.job-exec.rotate-trades.schedule` label in `docker-compose.yml`. Run it manually any time:
+
 ```sh
 docker compose exec db sh -c "cd /app/apps/db && tsx src/rotate-trades.ts"
 ```
@@ -92,4 +97,5 @@ docker compose exec db sh -c "cd /app/apps/db && tsx src/rotate-trades.ts"
 ```sh
 git pull && docker compose up -d --build
 ```
+
 The engine restores its in-memory orderbook from the persisted `snapshot.json` (kept in the `engine-snapshot` volume) on restart.

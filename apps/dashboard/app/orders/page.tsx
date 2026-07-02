@@ -18,6 +18,7 @@ import Link from "next/link"
 import { TrendingUpIcon } from "lucide-react"
 import { ThemeToggle } from "../components/ThemeToggle"
 import { UserMenu } from "../components/UserMenu"
+import { API_URL } from "@/lib/config"
 
 type OpenOrder = {
     "price": number,
@@ -57,14 +58,14 @@ export default function OpenOrdersTable() {
 
     useEffect(() => {
         if (!userId) return;
-        axios.get<OpenOrder[]>(`http://localhost:8000/api/v1/order/open?userId=${userId}&market=TATA_INR`).then(res => {
+        axios.get<OpenOrder[]>(`${API_URL}/api/v1/order/open?userId=${userId}&market=TATA_INR`).then(res => {
             setOpenOrders(res.data)
         })
     }, [userId])
 
     useEffect(() => {
         if (!userId) return;
-        axios.get<{ orders: ExecutedOrder[] }>(`http://localhost:8000/api/v1/order/executed_orders?userId=${userId}`).then(res => {
+        axios.get<{ orders: ExecutedOrder[] }>(`${API_URL}/api/v1/order/executed_orders?userId=${userId}`).then(res => {
             setExecutedOrders(res.data.orders)
         })
     }, [userId])

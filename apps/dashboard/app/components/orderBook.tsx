@@ -7,6 +7,7 @@ import { CurrentPriceResponse, Trade, TradeResponse, TradeWithLoading } from "@r
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader } from "./Loader";
 import { SignalingManager } from "@/lib/SignalManager";
+import { API_URL } from "@/lib/config";
 
 function setDepthQuantity(res: OrderBookResponse, wsUpdate: Boolean | undefined) {
   let { bids, asks } = res;
@@ -41,13 +42,13 @@ export function OrderBook({ symbol = "TATA_INR" }: { symbol: string }) {
     SignalingManager.getInstance().sendMessage({ method: "SUBSCRIBE", params: [`trade@${market}`] });
     SignalingManager.getInstance().sendMessage({ method: "SUBSCRIBE", params: [`current_price@${market}`] });
 
-    axios.get<OrderBookResponse>(`http://localhost:8000/api/v1/depth?symbol=${symbol}`).then((res) => {
+    axios.get<OrderBookResponse>(`${API_URL}/api/v1/depth?symbol=${symbol}`).then((res) => {
       setDepth({ data: setDepthQuantity(res.data, false), loading: false });
     });
-    axios.get<TradeResponse>(`http://localhost:8000/api/v1/trades?symbol=${symbol}`).then((res) => {
+    axios.get<TradeResponse>(`${API_URL}/api/v1/trades?symbol=${symbol}`).then((res) => {
       setTrades({ data: res.data.trades, loading: false });
     });
-    axios.get<CurrentPriceResponse>(`http://localhost:8000/api/v1/tickers/current_price?market=${symbol}`).then((res) => {
+    axios.get<CurrentPriceResponse>(`${API_URL}/api/v1/tickers/current_price?market=${symbol}`).then((res) => {
       setCurrentPriceData(res.data);
     });
   }, []);

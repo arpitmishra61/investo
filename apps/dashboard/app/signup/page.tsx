@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "../components/ThemeToggle";
+import { API_URL } from "@/lib/config";
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -22,7 +23,7 @@ export default function SignUpPage() {
     setError("");
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:8000/api/v1/auth/signup", {
+      const res = await fetch(`${API_URL}/api/v1/auth/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, password }),

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "../components/ThemeToggle";
+import { API_URL } from "@/lib/config";
 
 const GUESTS = [
   { name: "Alice", email: "alice@guest.investo", password: "alice123", initials: "AL" },
@@ -24,7 +25,7 @@ export default function SignInPage() {
   const [guestLoading, setGuestLoading] = useState<string | null>(null);
 
   async function signIn(emailVal: string, passwordVal: string) {
-    const res = await fetch("http://localhost:8000/api/v1/auth/signin", {
+    const res = await fetch(`${API_URL}/api/v1/auth/signin`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: emailVal, password: passwordVal }),

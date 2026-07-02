@@ -6,6 +6,7 @@ import { useTheme } from "next-themes";
 import { Card } from "@/components/ui/card";
 import { TimeframeSwitch } from "./timeFrame";
 import axios from "axios";
+import { API_URL } from "@/lib/config";
 
 export function PriceChart({ market = "TATA_INR" }: { market?: string }) {
     const ref = useRef<HTMLDivElement>(null);
@@ -48,7 +49,7 @@ export function PriceChart({ market = "TATA_INR" }: { market?: string }) {
             const endTime = Date.now();
             const startTime = 1767020774440;
             axios
-                .get(`http://localhost:8000/api/v1/klines?market=${market}&interval=${tf}&endTime=${endTime}&startTime=${startTime}`)
+                .get(`${API_URL}/api/v1/klines?market=${market}&interval=${tf}&endTime=${endTime}&startTime=${startTime}`)
                 .then((res) => {
                     const recent = tf === "3s" ? res.data.slice(-30) : res.data.slice(-60);
                     series.setData(recent);

@@ -9,6 +9,7 @@ import { Sparkline } from "@/app/components/sparkline";
 import { MarketRow } from "@/lib/market";
 import { ThemeToggle } from "@/app/components/ThemeToggle";
 import { UserMenu } from "@/app/components/UserMenu";
+import { API_URL } from "@/lib/config";
 
 const MARKETS = [
   { market: "GOOGLE_INR", symbol: "GOOGLE", icon: "/google_logo.svg" },
@@ -24,7 +25,7 @@ export default function MarketsPage() {
     Promise.all(
       MARKETS.map((m) =>
         axios
-          .get<{ result: MarketRow }>(`http://localhost:8000/api/v1/tickers/?market=${m.market}`)
+          .get<{ result: MarketRow }>(`${API_URL}/api/v1/tickers/?market=${m.market}`)
           .then((res) => ({ ...res.data.result, symbol: m.symbol }))
       )
     )

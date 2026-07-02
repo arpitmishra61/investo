@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
 import { Loader } from "lucide-react";
 import { SignalingManager } from "@/lib/SignalManager";
+import { API_URL } from "@/lib/config";
 
 enum Execute { DONE = "DONE", PENDING = "PENDING" }
 
@@ -39,7 +40,7 @@ export function TradingOrderForm({ market = "TATA_INR" }: { market?: string }) {
 
     useEffect(() => {
         if (!userId) return;
-        axios.get<AccountBalances>(`http://localhost:8000/api/v1/balance?userId=${userId}`).then(res => setBalance(res.data));
+        axios.get<AccountBalances>(`${API_URL}/api/v1/balance?userId=${userId}`).then(res => setBalance(res.data));
         SignalingManager.getInstance().sendMessage({ method: "SUBSCRIBE", params: [`balance@${userId}`] });
         SignalingManager.getInstance().registerCallback("balance", (updated: AccountBalances) => setBalance(updated), `BALANCE-${userId}`);
         return () => {
@@ -114,7 +115,7 @@ export function TradingOrderForm({ market = "TATA_INR" }: { market?: string }) {
                     onClick={async () => {
                         try {
                             setExecute(Execute.PENDING);
-                            const response = await axios.post("http://localhost:8000/api/v1/order", { market, price, quantity, side, userId }, { headers: { "Content-Type": "application/json" } });
+                            const response = await axios.post(`${API_URL}/api/v1/order`, { market, price, quantity, side, userId }, { headers: { "Content-Type": "application/json" } });
                             const { executedQty, rQuantity } = response.data;
                             toast.success("Trade done successfully ✅", { description: `Executed: ${executedQty}  Remaining: ${rQuantity}`, className: "trade-success-toast" });
                         } catch {

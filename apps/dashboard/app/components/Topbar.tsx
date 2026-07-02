@@ -10,8 +10,9 @@ import { useEffect, useRef, useState } from 'react'
 import axios from "axios";
 import { SignalingManager } from "./../../lib/SignalManager"
 import Image from "next/image";
+import { API_URL } from "@/lib/config";
 
-const BASE_URL = "http://localhost:8000";
+const BASE_URL = API_URL;
 const IDLE_TIMEOUT_MS = 60_000;
 
 const getTicker = async (market: string): Promise<Ticker> => {
@@ -41,6 +42,7 @@ export function TopBar({ market = "TATA_INR" }: { market?: string }) {
     useEffect(() => {
         setTicker(null);
         setTradeStopped(false);
+        console.log("TopBar useEffect", market);
         SignalingManager.getInstance().startMM(market);
         scheduleStop();
 

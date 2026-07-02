@@ -6,6 +6,7 @@ export const klineRouter = Router();
 
 klineRouter.get("/", async (req, res) => {
   const { market, interval, startTime, endTime } = req.query as any;
+  console.log(market, interval, startTime, endTime);
   const bucket = {
     gte: new Date(+startTime as unknown as string),
     lte: new Date(+endTime as unknown as string),
@@ -18,6 +19,7 @@ klineRouter.get("/", async (req, res) => {
         where: { market, bucket },
         orderBy: { bucket: "asc" },
       });
+      console.log("rows", rows);
     } else if (interval === "1h") {
       rows = await prisma.kline1h.findMany({
         where: { market, bucket },

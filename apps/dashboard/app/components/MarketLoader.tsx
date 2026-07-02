@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
+import { API_URL } from "@/lib/config";
 
 interface Props {
   market: string;
@@ -21,14 +22,13 @@ export function MarketLoader({ market, children }: Props) {
     }, 500);
 
     // Poll klines endpoint — once we get data the market is ready
-    const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
     const endTime = Date.now();
     const startTime = endTime - 24 * 60 * 60 * 1000;
 
     const poll = setInterval(async () => {
       try {
         const res = await fetch(
-          `${API}/api/v1/klines?market=${market}&interval=1m&startTime=${startTime}&endTime=${endTime}`,
+          `${API_URL}/api/v1/klines?market=${market}&interval=1m&startTime=${startTime}&endTime=${endTime}`,
         );
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
