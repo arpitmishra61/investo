@@ -70,7 +70,7 @@ export function TradingOrderForm({ market = "TATA_INR" }: { market?: string }) {
             </div>
 
             {/* Order Type */}
-            <Tabs value={orderType} onValueChange={setOrderType} className="w-4/5 mx-auto">
+            <Tabs value={orderType} onValueChange={(v) => setOrderType(v as "limit" | "market")} className="w-4/5 mx-auto">
                 <TabsList className="bg-muted rounded-lg p-1 text-sm font-semibold w-full">
                     <TabsTrigger value="limit" className="px-4 py-2 rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm">Limit</TabsTrigger>
                     <TabsTrigger value="market" className="px-4 py-2 rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm">Market</TabsTrigger>

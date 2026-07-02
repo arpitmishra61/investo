@@ -92,7 +92,7 @@ export default function OpenOrdersTable() {
                 <h1 className="text-3xl font-bold tracking-tight mb-8">Orders</h1>
 
                 <Card className="p-6">
-                    <Tabs value={orderType} onValueChange={setOrderType} className="mb-6">
+                    <Tabs value={orderType} onValueChange={(v) => setOrderType(v as "open" | "executed")} className="mb-6">
                         <TabsList className="bg-muted rounded-lg p-1 text-sm font-semibold inline-flex gap-1">
                             <TabsTrigger
                                 value="open"
