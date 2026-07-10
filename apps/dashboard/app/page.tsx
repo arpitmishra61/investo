@@ -65,7 +65,7 @@ export default function LandingPage() {
         {/* Stats row */}
         <div className="mt-20 flex flex-wrap items-center justify-center gap-8 sm:gap-16">
           {[
-            { label: "Markets", value: "3" },
+            { label: "Markets", value: "2" },
             { label: "Order Types", value: "Limit · Market" },
             { label: "Latency", value: "< 5ms" },
           ].map((s) => (

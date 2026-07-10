@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -23,6 +23,7 @@ export function TradingOrderForm({ market = "TATA_INR" }: { market?: string }) {
     const [side, setSide] = useState<"buy" | "sell">("buy");
     const [orderType, setOrderType] = useState<"limit" | "market">("limit");
     const [price, setPrice] = useState("87547.5");
+    const [priceTouched, setPriceTouched] = useState(false);
     const [quantity, setQuantity] = useState("0");
     const [execute, setExecute] = useState<Execute>(Execute.DONE);
     const [balance, setBalance] = useState<AccountBalances | null>(null);
@@ -48,6 +49,42 @@ export function TradingOrderForm({ market = "TATA_INR" }: { market?: string }) {
             SignalingManager.getInstance().sendMessage({ method: "UNSUBSCRIBE", params: [`balance@${userId}`] });
         };
     }, [userId]);
+
+    // reset "did the user manually edit the price" whenever market or order type changes,
+    // so limit orders re-sync to the live price until the user types their own
+    useEffect(() => {
+        setPriceTouched(false);
+    }, [market, orderType]);
+
+    // read via refs inside the ticker callback instead of depending on them directly —
+    // otherwise every keystroke (which flips priceTouched) would tear down and
+    // re-send SUBSCRIBE/UNSUBSCRIBE on the shared WS connection, which also carries
+    // Topbar's ticker feed
+    const orderTypeRef = useRef(orderType);
+    orderTypeRef.current = orderType;
+    const priceTouchedRef = useRef(priceTouched);
+    priceTouchedRef.current = priceTouched;
+
+    useEffect(() => {
+        SignalingManager.getInstance().registerCallback(
+            "current_price",
+            (currentPrice: number) => {
+                setPrice((prev) => {
+                    if (orderTypeRef.current === "market" || !priceTouchedRef.current) {
+                        return currentPrice.toString();
+                    }
+                    return prev;
+                });
+            },
+            `TRADEBOX-PRICE-${market}`,
+        );
+        SignalingManager.getInstance().sendMessage({ method: "SUBSCRIBE", params: [`current_price@${market}`] });
+
+        return () => {
+            SignalingManager.getInstance().deRegisterCallback("current_price", `TRADEBOX-PRICE-${market}`);
+            SignalingManager.getInstance().sendMessage({ method: "UNSUBSCRIBE", params: [`current_price@${market}`] });
+        };
+    }, [market]);
 
     const orderValue = (parseFloat(price) || 0) * (parseFloat(quantity) || 0);
 
@@ -86,7 +123,16 @@ export function TradingOrderForm({ market = "TATA_INR" }: { market?: string }) {
             <div className="flex gap-3">
                 <div className="flex-1 min-w-0">
                     <Label htmlFor="price" className="text-muted-foreground text-xs">Price</Label>
-                    <Input id="price" value={price} onChange={(e) => setPrice(e.target.value)} className="mt-1 bg-background border-border" />
+                    <Input
+                        id="price"
+                        value={price}
+                        onChange={(e) => {
+                            setPrice(e.target.value);
+                            setPriceTouched(true);
+                        }}
+                        disabled={orderType === "market"}
+                        className="mt-1 bg-background border-border disabled:opacity-70 disabled:cursor-not-allowed"
+                    />
                 </div>
                 <div className="flex-1 min-w-0">
                     <Label htmlFor="quantity" className="text-muted-foreground text-xs">Quantity</Label>

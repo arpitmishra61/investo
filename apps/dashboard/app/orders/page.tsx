@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@radix-ui/react-tabs"
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import axios from "axios"
 import { Loader } from "../components/Loader"
 import Link from "next/link"
@@ -43,32 +44,39 @@ type ExecutedOrder = {
 const type = "TATA"
 
 export default function OpenOrdersTable() {
+    const router = useRouter();
     const [openOrders, setOpenOrders] = useState<OpenOrder[] | null>(null);
     const [executedOrders, setExecutedOrders] = useState<ExecutedOrder[] | null>(null);
     const [orderType, setOrderType] = useState<"open" | "executed">("open");
     const [userId, setUserId] = useState<string | null>(null);
+    const [checkedAuth, setCheckedAuth] = useState(false);
 
     useEffect(() => {
+        const token = localStorage.getItem("token");
         const raw = localStorage.getItem("user");
-        if (raw) {
-            const user = JSON.parse(raw);
-            setUserId(user.id);
+        if (!token || !raw) {
+            router.replace("/signin");
+            return;
         }
-    }, []);
+        setUserId(JSON.parse(raw).id);
+        setCheckedAuth(true);
+    }, [router]);
 
     useEffect(() => {
-        if (!userId) return;
+        if (!checkedAuth || !userId) return;
         axios.get<OpenOrder[]>(`${API_URL}/api/v1/order/open?userId=${userId}&market=TATA_INR`).then(res => {
             setOpenOrders(res.data)
         })
     }, [userId])
 
     useEffect(() => {
-        if (!userId) return;
+        if (!checkedAuth || !userId) return;
         axios.get<{ orders: ExecutedOrder[] }>(`${API_URL}/api/v1/order/executed_orders?userId=${userId}`).then(res => {
             setExecutedOrders(res.data.orders)
         })
-    }, [userId])
+    }, [checkedAuth, userId])
+
+    if (!checkedAuth) return null;
 
     return (
         <div className="min-h-screen bg-background text-foreground">

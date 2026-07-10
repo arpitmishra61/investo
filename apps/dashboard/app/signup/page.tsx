@@ -1,16 +1,50 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { TrendingUpIcon } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "../components/ThemeToggle";
-import { API_URL } from "@/lib/config";
+
+// Registration is disabled — guest-only login while we're in visualization mode.
+// import { useState } from "react";
+// import { useRouter } from "next/navigation";
+// import { Input } from "@/components/ui/input";
+// import { Label } from "@/components/ui/label";
+// import { Button } from "@/components/ui/button";
+// import { API_URL } from "@/lib/config";
 
 export default function SignUpPage() {
+  return (
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
+      <nav className="flex items-center justify-between px-8 py-5 border-b border-border">
+        <Link href="/" className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500 text-black">
+            <TrendingUpIcon size={16} strokeWidth={2.5} />
+          </div>
+          <span className="text-lg font-bold tracking-tight">
+            Trade<span className="text-emerald-500">Pi</span>
+          </span>
+        </Link>
+        <ThemeToggle />
+      </nav>
+
+      <div className="flex flex-1 items-center justify-center px-4">
+        <div className="w-full max-w-sm text-center">
+          <h1 className="text-2xl font-bold tracking-tight">Registration is disabled</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            TradePi is in visualization mode right now — sign in with a guest profile to explore it.
+          </p>
+          <Link
+            href="/signin"
+            className="mt-6 inline-block rounded-md bg-emerald-500 px-6 py-2.5 text-sm font-semibold text-black hover:bg-emerald-400 transition-colors"
+          >
+            Go to sign in
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+
+  /* Original signup form — restore when registration is re-enabled.
   const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -126,4 +160,5 @@ export default function SignUpPage() {
       </div>
     </div>
   );
+  */
 }
