@@ -7,6 +7,7 @@ export const GET_DEPTH = "GET_DEPTH";
 export const GET_OPEN_ORDERS = "GET_OPEN_ORDERS";
 export const GET_BALANCE = "GET_BALANCE";
 export const GET_CURRENT_PRICE = "GET_CURRENT_PRICE";
+export const RESET_ENGINE = "RESET_ENGINE";
 
 
 //TODO: Can we share the types between the api and the engine?
@@ -54,4 +55,7 @@ export type MessageFromApi = {
     data: {
         market: string,
     }
+} | {
+    type: typeof RESET_ENGINE,
+    data: {}
 }

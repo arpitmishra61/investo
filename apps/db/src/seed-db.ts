@@ -17,10 +17,10 @@ async function initializeDB() {
         SELECT
             time_bucket('1 minute', time) AS bucket,
             market,
-            first(price, time) AS open,
+            first(price, id) AS open,
             max(price) AS high,
             min(price) AS low,
-            last(price, time) AS close,
+            last(price, id) AS close,
             currency_code
         FROM trades
         GROUP BY bucket, market, currency_code;
@@ -31,10 +31,10 @@ async function initializeDB() {
         SELECT
             time_bucket('1 hour', time) AS bucket,
             market,
-            first(price, time) AS open,
+            first(price, id) AS open,
             max(price) AS high,
             min(price) AS low,
-            last(price, time) AS close,
+            last(price, id) AS close,
             currency_code
         FROM trades
         GROUP BY bucket, market, currency_code;
@@ -45,10 +45,10 @@ async function initializeDB() {
         SELECT
             time_bucket('1 week', time) AS bucket,
             market,
-            first(price, time) AS open,
+            first(price, id) AS open,
             max(price) AS high,
             min(price) AS low,
-            last(price, time) AS close,
+            last(price, id) AS close,
             currency_code
         FROM trades
         GROUP BY bucket, market, currency_code;
@@ -59,10 +59,10 @@ async function initializeDB() {
         SELECT
             time_bucket('10 seconds', time) AS bucket,
             market,
-            first(price, time) AS open,
+            first(price, id) AS open,
             max(price) AS high,
             min(price) AS low,
-            last(price, time) AS close,
+            last(price, id) AS close,
             currency_code
         FROM trades
         GROUP BY bucket, market, currency_code;

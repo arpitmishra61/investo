@@ -7,6 +7,7 @@ import {
   ON_RAMP,
   GET_CURRENT_PRICE,
   CREATE_TICKER_WS,
+  RESET_ENGINE,
 } from ".";
 
 export type MessageToEngine =
@@ -60,6 +61,10 @@ export type MessageToEngine =
       data: {
         market: string;
       };
+    }
+  | {
+      type: typeof RESET_ENGINE;
+      data: {};
     };
 
 export type MessageToWs = {

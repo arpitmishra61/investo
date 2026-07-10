@@ -31,7 +31,7 @@ WITH last_trade AS (
   SELECT price
   FROM trades
   WHERE market = ${market as string} AND currency_code = ${"$"}
-  ORDER BY time DESC
+  ORDER BY id DESC
   LIMIT 1
 ),
 trades_24h AS (

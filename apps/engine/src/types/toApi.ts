@@ -40,4 +40,7 @@ export type MessageToApi = {
 } |{
     type: "CURRENT_BALANCE",
     payload: {currentPrice:number}
+} | {
+    type: "ENGINE_RESET",
+    payload: { ok: boolean }
 }

@@ -11,7 +11,8 @@ import {
   MessageFromApi,
   ON_RAMP,
   GET_BALANCE,
-  GET_CURRENT_PRICE
+  GET_CURRENT_PRICE,
+  RESET_ENGINE
 } from "../types/fromApi";
 import { Fill, Order, Orderbook } from "./Orderbook";
 
@@ -254,7 +255,35 @@ console.log("FsdfgsgsG",orderbook?.currentPrice)
 
       }
         break;
+      case RESET_ENGINE: {
+        try {
+          this.reset();
+          RedisManager.getInstance().sendToApi(clientId, {
+            type: "ENGINE_RESET",
+            payload: { ok: true },
+          });
+        } catch (err) {
+          console.log("Engine reset error", err);
+          RedisManager.getInstance().sendToApi(clientId, {
+            type: "ENGINE_RESET",
+            payload: { ok: false },
+          });
+        }
+      }
+        break;
     }
+  }
+
+  reset() {
+    this.orderbooks = [
+      new Orderbook(`TATA`, [], [], 0, 0),
+      new Orderbook(`GOOGLE`, [], [], 0, 0),
+      new Orderbook(`META`, [], [], 0, 0),
+    ];
+    this.balances = new Map();
+    this.setBaseBalances();
+    this.saveSnapshot();
+    console.log("Engine state reset: orderbooks cleared, balances re-seeded");
   }
 
   addOrderbook(orderbook: Orderbook) {

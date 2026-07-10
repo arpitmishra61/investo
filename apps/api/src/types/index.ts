@@ -7,6 +7,7 @@ export const GET_DEPTH = "GET_DEPTH";
 export const GET_BALANCE = "GET_BALANCE";
 export const GET_CURRENT_PRICE = "GET_CURRENT_PRICE";
 export const CREATE_TICKER_WS = "CREATE_TICKER_WS";
+export const RESET_ENGINE = "RESET_ENGINE";
 
 export type MessageFromOrderbook =
   | {
@@ -54,5 +55,11 @@ export type MessageFromOrderbook =
       type: "CURRENT_BALANCE";
       payload: {
         currentPrice: number;
+      };
+    }
+  | {
+      type: "ENGINE_RESET";
+      payload: {
+        ok: boolean;
       };
     };

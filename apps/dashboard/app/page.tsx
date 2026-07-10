@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { TrendingUpIcon, ArrowRight, BarChart2, Zap, Shield } from "lucide-react";
 import { ThemeToggle } from "./components/ThemeToggle";
+import { UserMenu } from "./components/UserMenu";
 
 export default function LandingPage() {
   return (
@@ -15,20 +16,14 @@ export default function LandingPage() {
             Trade<span className="text-emerald-500">Pi</span>
           </span>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+          <UserMenu />
           <ThemeToggle />
-          <Link
-            href="/markets"
-            className="flex items-center gap-2 rounded-full bg-foreground text-background px-5 py-2 text-sm font-semibold hover:opacity-90 transition-all"
-          >
-            Explore Markets
-            <ArrowRight size={15} />
-          </Link>
         </div>
       </nav>
 
       {/* Hero */}
-      <section className="relative flex flex-col items-center justify-center min-h-screen px-6 text-center">
+      <section className="relative flex flex-col items-center justify-center px-6 pt-40 pb-20 text-center">
         {/* Background glow — visible in dark, subtle in light */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <div className="absolute left-1/2 top-1/3 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-emerald-500/10 blur-[120px] dark:bg-emerald-500/12" />
@@ -64,12 +59,6 @@ export default function LandingPage() {
           >
             Explore Markets
             <ArrowRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
-          </Link>
-          <Link
-            href="/orders"
-            className="flex items-center gap-2 rounded-full border border-border bg-muted px-7 py-3.5 text-sm font-medium text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-all"
-          >
-            View Open Orders
           </Link>
         </div>
 
