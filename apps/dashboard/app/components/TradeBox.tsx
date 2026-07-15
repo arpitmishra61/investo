@@ -16,7 +16,7 @@ import { API_URL } from "@/lib/config";
 enum Execute { DONE = "DONE", PENDING = "PENDING" }
 
 type Balance = { available: number; locked: number };
-type AccountBalances = { INR: Balance; TATA: Balance };
+type AccountBalances = Record<string, Balance>;
 
 export function TradingOrderForm({ market = "TATA_INR" }: { market?: string }) {
     const router = useRouter();
@@ -87,6 +87,10 @@ export function TradingOrderForm({ market = "TATA_INR" }: { market?: string }) {
     }, [market]);
 
     const orderValue = (parseFloat(price) || 0) * (parseFloat(quantity) || 0);
+    const baseAsset = market.split("_")[0] ?? "";
+    const insufficientBalance = side === "buy"
+        ? orderValue > (balance?.INR?.available ?? 0)
+        : (parseFloat(quantity) || 0) > (balance?.[baseAsset]?.available ?? 0);
 
     return (
         <Card className="p-4 sm:p-5 w-full max-w-md mx-auto space-y-4">
@@ -116,7 +120,7 @@ export function TradingOrderForm({ market = "TATA_INR" }: { market?: string }) {
 
             {/* Balance */}
             <div className="text-xs text-muted-foreground bg-muted/50 rounded-md px-3 py-2 border border-border">
-                Available Money: <span className="font-semibold text-foreground">INR {balance ? balance.INR.available.toPrecision(9) : <Loader className="inline h-3 w-3 animate-spin" />}</span>
+                Available Money: <span className="font-semibold text-foreground">INR {balance?.INR ? balance.INR.available.toPrecision(9) : <Loader className="inline h-3 w-3 animate-spin" />}</span>
             </div>
 
             {/* Price + Quantity */}
@@ -146,6 +150,11 @@ export function TradingOrderForm({ market = "TATA_INR" }: { market?: string }) {
                 <div className="mt-1 flex items-center bg-muted rounded-md px-3 py-2.5 border border-border">
                     <span className="font-mono font-semibold">₹{orderValue.toFixed(2)}</span>
                 </div>
+                {insufficientBalance && (
+                    <p className="mt-1 text-xs text-red-500">
+                        {side === "buy" ? "Insufficient balance" : `Insufficient ${baseAsset} balance`}
+                    </p>
+                )}
             </div>
 
             {/* PIN */}
@@ -157,15 +166,17 @@ export function TradingOrderForm({ market = "TATA_INR" }: { market?: string }) {
             {/* Submit */}
             {isAuthenticated ? (
                 <button
-                    className={`w-full py-2.5 rounded-md font-semibold transition-colors ${side === "buy" ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-red-600 hover:bg-red-700 text-white"}`}
+                    disabled={execute === Execute.PENDING || insufficientBalance}
+                    className={`w-full py-2.5 rounded-md font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${side === "buy" ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-red-600 hover:bg-red-700 text-white"}`}
                     onClick={async () => {
                         try {
                             setExecute(Execute.PENDING);
                             const response = await axios.post(`${API_URL}/api/v1/order`, { market, price, quantity, side, userId }, { headers: { "Content-Type": "application/json" } });
                             const { executedQty, rQuantity } = response.data;
                             toast.success("Trade done successfully ✅", { description: `Executed: ${executedQty}  Remaining: ${rQuantity}`, className: "trade-success-toast" });
-                        } catch {
-                            toast.error("Error ❌", { description: "Something went wrong.", className: "trade-error-toast" });
+                        } catch (err) {
+                            const message = axios.isAxiosError(err) ? err.response?.data?.error : undefined;
+                            toast.error("Error ❌", { description: message ?? "Something went wrong.", className: "trade-error-toast" });
                         } finally {
                             setExecute(Execute.DONE);
                         }

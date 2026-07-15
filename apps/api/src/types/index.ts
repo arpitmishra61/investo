@@ -38,6 +38,7 @@ export type MessageFromOrderbook =
         orderId: string;
         executedQty: number;
         remainingQty: number;
+        error?: string;
       };
     }
   | {

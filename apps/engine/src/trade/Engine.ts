@@ -110,6 +110,7 @@ export class Engine {
               orderId: "",
               executedQty: 0,
               remainingQty: 0,
+              error: e instanceof Error ? e.message : "Order rejected",
             },
           });
         }

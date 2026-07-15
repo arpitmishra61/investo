@@ -53,6 +53,10 @@ orderRouter.post("/", async (req, res) => {
     },
   });
   console.log("Fdxzgsedg", response)
+  if (response.type === "ORDER_CANCELLED") {
+    res.status(400).json(response.payload);
+    return;
+  }
   res.json(response.payload);
 });
 
