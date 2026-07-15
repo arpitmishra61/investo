@@ -93,6 +93,21 @@ cd apps/db && npm run seed:trades
 - After flush it refreshes materialized views (`klines_3s`, `klines_1m`, etc.)
 - DB wakes/sleeps via Redis channels `db:wake` / `db:sleep` to avoid idle Neon compute
 
+## API Rate Limiting
+
+- Middleware lives in `apps/api/src/middleware/rateLimit.ts` (uses `express-rate-limit`, in-memory store, fixed 60s window, per-IP).
+- Three tiers, applied per-router in `apps/api/src/index.ts`:
+  - `strictRateLimit` (10 req/min) — `/api/v1/auth`, `/api/v1/admin`
+  - `orderRateLimit` (30 req/min) — `/api/v1/order`
+  - `readRateLimit` (120 req/min) — `/api/v1/depth`, `/api/v1/trades`, `/api/v1/klines`, `/api/v1/tickers`, `/api/v1/balance`
+- This is app-layer protection only (per-IP counters, in-process). It stops a single abusive client (e.g. Postman/for-loop spam) but does **not** protect against distributed or volumetric/network-layer DDoS — that requires an edge layer (Cloudflare, etc.) in front of Caddy, since raw network floods never reach Express's middleware chain.
+- `ADMIN_KEY` is set to `reset-orderbook-1111` in `apps/api/.env` and `apps/db/.env` (dev) and must be set in the top-level `.env` for docker-compose prod (see `.env.example`) — the `x-admin-key` check in `admin.ts` only enforces when this is set.
+
+### Daily Rotation → Engine Reset
+- `apps/db/src/rotate-trades.ts` (run by the `rotate-trades` Ofelia cron job, daily at 00:30 UTC / 06:00 IST) now has a **4th step**: after refreshing kline views, it calls `POST /api/v1/admin/reset` (via `resetEngine()`, using `API_URL` + `ADMIN_KEY` from `apps/db/.env`) to wipe engine orderbooks and reset all balances back to seeded defaults.
+- This means trading state (open orders, balances) resets to defaults every 24h, in addition to the trade-history rotation. Intentional for a demo/dummy app — reconsider before enabling in a real-money context.
+- If `rotate-trades.ts` is ever run manually (`npm run rotate` in `apps/db`) it will also trigger this reset — not just clean up trade history.
+
 ## Dashboard Routes
 
 | Route | Description |
@@ -138,3 +153,4 @@ There is **no** `/dashboard` route. The old `/dashboard/[...slug]` was removed; 
 - `WITH_SNAPSHOT=true` — Engine flag to restore state from `snapshot.json` on startup
 - `API_URL` — Base URL for the REST API used by the MM (default: `http://localhost:8000`)
 - `PORT` — API server port (default: `8000`)
+- `ADMIN_KEY` — expected value of the `x-admin-key` header for `POST /api/v1/admin/reset`. **Currently unset in `apps/api/.env`**, which disables the auth check entirely (see API Rate Limiting section above).

@@ -4,6 +4,7 @@
  * 1. Delete all trades older than 24 hours
  * 2. Seed 1 hour of synthetic trades for today's pre-open window (05:00–06:00 IST)
  * 3. Refresh all kline materialized views
+ * 4. Reset the engine (orderbooks + balances) via POST /api/v1/admin/reset
  *
  * Recommended cron (UTC, since IST = UTC+5:30):
  *   30 0 * * *   tsx /app/apps/db/src/rotate-trades.ts
@@ -12,6 +13,20 @@ import prisma from "@repo/database";
 import "dotenv/config";
 
 const INTERVAL_SEC = 10;
+const API_URL = process.env.API_URL ?? "http://localhost:8000";
+const ADMIN_KEY = process.env.ADMIN_KEY;
+
+async function resetEngine() {
+  console.log("Resetting engine (orderbooks + balances)…");
+  const res = await fetch(`${API_URL}/api/v1/admin/reset`, {
+    method: "POST",
+    headers: ADMIN_KEY ? { "x-admin-key": ADMIN_KEY } : {},
+  });
+  if (!res.ok) {
+    throw new Error(`Engine reset failed: ${res.status} ${await res.text()}`);
+  }
+  console.log("Engine reset complete.");
+}
 
 const markets = [
   { market: "GOOGLE_INR", volatility: 8 },
@@ -100,6 +115,9 @@ async function rotate() {
   await prisma.$executeRawUnsafe("REFRESH MATERIALIZED VIEW klines_1m");
   await prisma.$executeRawUnsafe("REFRESH MATERIALIZED VIEW klines_1h");
   await prisma.$executeRawUnsafe("REFRESH MATERIALIZED VIEW klines_1w");
+
+  // 4. reset engine orderbooks + balances
+  await resetEngine();
 
   console.log("Rotation complete.");
   await prisma.$disconnect();
