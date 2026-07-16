@@ -140,17 +140,34 @@ There is **no** `/dashboard` route. The old `/dashboard/[...slug]` was removed; 
 
 ## Key Design Decisions
 
-- **Engine state is in-memory + snapshot**: The engine snapshots orderbooks and balances to `apps/engine/snapshot.json` every 3 seconds. On restart with `WITH_SNAPSHOT=true`, it restores state from that file.
+- **Engine state is in-memory + snapshot**: The engine snapshots orderbooks and balances to `snapshot.json` every 3 seconds, at `path.join(process.env.SNAPSHOT_DIR || ".", "snapshot.json")` — `apps/engine/snapshot.json` in local dev, `/data/snapshot/snapshot.json` (a dedicated Docker volume) in prod. On restart with `WITH_SNAPSHOT=true`, it restores state from that file.
 - **No floats in production**: There is a TODO in `Engine.ts` to replace float arithmetic with a decimal library — the engine currently uses `number` throughout.
 - **Balances pre-seeded**: Users `"1"`, `"2"`, and `"5"` (the MM user) are seeded with 10M INR and 10M of each stock at engine startup. The dashboard hardcodes `userId: "5"` for all orders and balance queries.
 - **TimescaleDB klines**: The `trades` table is a Timescale hypertable. OHLC candles are served from materialized views (`klines_3s`, `klines_1m`, `klines_1h`, `klines_1w`) refreshed by the db app.
 - **MM `.env`**: `apps/mm` requires a `.env` file with `DATABASE_URL` and loads it via `import "dotenv/config"` at the top of `src/index.ts`. The `apps/db` app does the same.
+
+## Deployment Gotchas
+
+### `engine-snapshot` volume shadows the engine's source code
+- `docker-compose.yml`'s `engine` service mounts a **named volume over the whole source directory**: `engine-snapshot:/app/apps/engine` (intended only for persisting `snapshot.json`).
+- Named volumes are only seeded from the image **once** — the first time a container mounts an empty named volume onto a directory, Docker copies the image's contents in. Every subsequent container recreation reuses that frozen volume content instead of the new image's files.
+- **Symptom**: you push a commit, CI/CD runs `git pull && docker compose up -d --build`, the image rebuilds successfully (confirmed via `docker run --rm investo-backend:latest grep ...`), but the actual running `investo-engine` container still executes old code (confirmed via `docker exec investo-engine grep ...` returning nothing for code that should be there). Restarting/recreating the container alone does **not** fix it — the stale volume just gets remounted again.
+- **Fix that actually resolves it**: the volume itself must be deleted so Docker reseeds it from the fresh image:
+  ```sh
+  docker compose stop engine
+  docker compose rm -f engine   # `stop` alone leaves the container attached to the volume ("volume is in use")
+  docker volume rm investo_engine-snapshot   # check exact name via `docker volume ls`
+  docker compose up -d engine
+  ```
+- **Fixed**: the volume now mounts at `engine-snapshot:/data/snapshot` (set via `SNAPSHOT_DIR=/data/snapshot` in `docker-compose.yml`), which no longer overlaps with `/app/apps/engine`. `Engine.ts` reads/writes `path.join(process.env.SNAPSHOT_DIR || ".", "snapshot.json")`, so local dev (no `SNAPSHOT_DIR` set) still uses `apps/engine/snapshot.json` as before.
+- Always sanity-check a suspected "code isn't updating" deploy issue in this order: (1) is the commit actually pushed/on the VM's checkout (`git log --oneline -1` on the VM vs. local), (2) does the **image** have the code (`docker run --rm investo-backend:latest grep ...`), (3) does the **running container** have the code (`docker exec <container> grep ...`) — a mismatch between steps 2 and 3 means a volume (or bind mount) is shadowing the directory, not a build/git problem.
 
 ## Environment Variables
 
 - `DATABASE_URL` — PostgreSQL/TimescaleDB connection string (used by `@repo/database`, `apps/db`, and `apps/mm`)
 - `REDIS_URL` — Redis connection string (used by `apps/db` and `apps/mm`; others use default `localhost:6379`)
 - `WITH_SNAPSHOT=true` — Engine flag to restore state from `snapshot.json` on startup
+- `SNAPSHOT_DIR` — directory for the engine's `snapshot.json` (default: `.`, i.e. `apps/engine/snapshot.json`). Set to `/data/snapshot` in `docker-compose.yml`, backed by the `engine-snapshot` volume, so the volume never overlaps with the source directory
 - `API_URL` — Base URL for the REST API used by the MM (default: `http://localhost:8000`)
 - `PORT` — API server port (default: `8000`)
 - `ADMIN_KEY` — expected value of the `x-admin-key` header for `POST /api/v1/admin/reset`. **Currently unset in `apps/api/.env`**, which disables the auth check entirely (see API Rate Limiting section above).

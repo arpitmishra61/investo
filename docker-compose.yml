@@ -57,8 +57,9 @@ services:
     environment:
       WITH_SNAPSHOT: "true"
       NODE_OPTIONS: "--max-old-space-size=1536"
+      SNAPSHOT_DIR: "/data/snapshot"
     volumes:
-      - engine-snapshot:/app/apps/engine
+      - engine-snapshot:/data/snapshot
     cpus: 0.75
     mem_limit: 2g
     mem_reservation: 512m

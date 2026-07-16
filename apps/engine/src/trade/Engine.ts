@@ -1,6 +1,7 @@
 import { CurrentPrice } from './../../../../node_modules/@repo/types/src/trade';
 import { orderBook } from './../../../dashboard/lib/mockData';
 import fs from "fs";
+import path from "path";
 import { RedisManager } from "../RedisManager";
 import { ORDER_UPDATE, TRADE_ADDED } from "../types/index";
 import {
@@ -19,6 +20,10 @@ import { Fill, Order, Orderbook } from "./Orderbook";
 //TODO: Avoid floats everywhere, use a decimal similar to the PayTM project for every currency
 export const BASE_CURRENCY = "INR";
 
+// SNAPSHOT_DIR is mounted as a Docker volume separate from the source tree
+// (see docker-compose.yml) so a named volume never shadows the app's code on deploy.
+const SNAPSHOT_PATH = path.join(process.env.SNAPSHOT_DIR || ".", "snapshot.json");
+
 interface UserBalance {
   [key: string]: {
     available: number;
@@ -34,7 +39,7 @@ export class Engine {
     let snapshot = null;
     try {
       if (process.env.WITH_SNAPSHOT) {
-        snapshot = fs.readFileSync("./snapshot.json");
+        snapshot = fs.readFileSync(SNAPSHOT_PATH);
       }
     } catch (e) {
       console.log("No snapshot found");
@@ -71,7 +76,8 @@ export class Engine {
       orderbooks: this.orderbooks.map((o) => o.getSnapshot()),
       balances: Array.from(this.balances.entries()),
     };
-    fs.writeFileSync("./snapshot.json", JSON.stringify(snapshotSnapshot));
+    fs.mkdirSync(path.dirname(SNAPSHOT_PATH), { recursive: true });
+    fs.writeFileSync(SNAPSHOT_PATH, JSON.stringify(snapshotSnapshot));
   }
 
   process({
