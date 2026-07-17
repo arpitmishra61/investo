@@ -86,6 +86,7 @@ cd apps/db && npm run seed:trades
 - **Topbar** component sends start/stop signals via `SignalingManager` → WebSocket → `SubscriptionManager` → Redis pub/sub
 - MM persists the current price to Redis (`mm:price:<market>`) every tick and to PostgreSQL every 60s
 - On start, MM loads price from Redis → DB → hardcoded default
+- MM places its buy/sell orders via `POST /api/v1/order` as user `"3"`. That route requires a Bearer JWT (`requireAuth` in `apps/api/src/middleware/auth.ts`), so MM signs its own long-lived service token at startup using `JWT_SECRET` (`apps/mm/src/index.ts`) instead of logging in like a real user — `JWT_SECRET` must therefore be the same value for `api` and `mm` (in prod both read it from the shared root `.env` via `env_file`; in local dev both fall back to the same hardcoded default if unset)
 
 ### DB Writer
 - Engine pushes `TRADE_ADDED` messages onto Redis list `db_processor`
@@ -98,15 +99,24 @@ cd apps/db && npm run seed:trades
 - Middleware lives in `apps/api/src/middleware/rateLimit.ts` (uses `express-rate-limit`, in-memory store, fixed 60s window, per-IP).
 - Three tiers, applied per-router in `apps/api/src/index.ts`:
   - `strictRateLimit` (10 req/min) — `/api/v1/auth`, `/api/v1/admin`
-  - `orderRateLimit` (30 req/min) — `/api/v1/order`
-  - `readRateLimit` (120 req/min) — `/api/v1/depth`, `/api/v1/trades`, `/api/v1/klines`, `/api/v1/tickers`, `/api/v1/balance`
+  - `orderRateLimit` (20 req/min) — `/api/v1/order`
+  - `readRateLimit` (40 req/min) — `/api/v1/depth`, `/api/v1/trades`, `/api/v1/klines`, `/api/v1/tickers`, `/api/v1/balance`
+- `orderRateLimit` skips the market maker's own traffic entirely (`skip: req.userId === "3"`) rather than being sized to accommodate it. The MM legitimately places far more orders/min than any real trader (multiple markets ticking every few seconds — a single market alone can hit ~50/min), so lumping it into the same bucket as real users meant the limit had to keep chasing however many markets were concurrently active. `requireAuth` runs *before* `orderRateLimit` on this route specifically so `req.userId` (decoded from the JWT) is available for that skip check.
 - This is app-layer protection only (per-IP counters, in-process). It stops a single abusive client (e.g. Postman/for-loop spam) but does **not** protect against distributed or volumetric/network-layer DDoS — that requires an edge layer (Cloudflare, etc.) in front of Caddy, since raw network floods never reach Express's middleware chain.
+- `app.set("trust proxy", 1)` in `apps/api/src/index.ts` — prod traffic passes through exactly one reverse proxy (Caddy) before reaching Express, so this tells Express to read the real client IP from `X-Forwarded-For` (which Caddy sets automatically) for `req.ip`, instead of reporting Caddy's own container IP for every request. Without this, every real visitor behind Caddy shared one single rate-limit bucket. `1` = trust exactly one hop; harmless in local dev (no proxy in front → no `X-Forwarded-For` header → falls back to the raw socket address as before).
 - `ADMIN_KEY` is set to `reset-orderbook-1111` in `apps/api/.env` and `apps/db/.env` (dev) and must be set in the top-level `.env` for docker-compose prod (see `.env.example`) — the `x-admin-key` check in `admin.ts` only enforces when this is set.
 
 ### Daily Rotation → Engine Reset
 - `apps/db/src/rotate-trades.ts` (run by the `rotate-trades` Ofelia cron job, daily at 00:30 UTC / 06:00 IST) now has a **4th step**: after refreshing kline views, it calls `POST /api/v1/admin/reset` (via `resetEngine()`, using `API_URL` + `ADMIN_KEY` from `apps/db/.env`) to wipe engine orderbooks and reset all balances back to seeded defaults.
 - This means trading state (open orders, balances) resets to defaults every 24h, in addition to the trade-history rotation. Intentional for a demo/dummy app — reconsider before enabling in a real-money context.
 - If `rotate-trades.ts` is ever run manually (`npm run rotate` in `apps/db`) it will also trigger this reset — not just clean up trade history.
+- `Engine.reset()` (`apps/engine/src/trade/Engine.ts`) is now `async` and, per market, reads the last price from Redis (`mm:price:<market>` — the same key the MM writes every tick) so the post-reset orderbook continues from the last known price instead of jumping to `0`; falls back to hardcoded defaults (3500/14000/32000, matching `apps/mm`'s `MARKET_CONFIGS`) only if Redis has nothing yet. It also seeds 5 resting bid + 5 resting ask levels around that price (owned by the MM's fixed user `"3"`) via `warmOrderbook()`, so the book isn't empty right after reset. `RedisManager.get()` (new) is what lets the engine read Redis directly for this. Finally, it deletes the pre-reset `snapshot.json` (`fs.rmSync`) and immediately rewrites a fresh one, rather than just overwriting it, so no stale pre-reset state can ever be recovered from — the `RESET_ENGINE` case in `process()` now awaits this via `.then()/.catch()`.
+
+### Kline duplicate-seeding bug (fixed)
+- `rotate-trades.ts` seeds a fixed 1-hour "pre-open" window of synthetic trades every day, but previously only deleted trades older than 24h — it never cleared out rows already sitting in that day's exact window before reinserting. Re-running it for the same day (retry, manual run, double cron fire) — or overlap with a manual `seed-trades` run — left **duplicate overlapping rows** in the same time buckets.
+- Combined with the kline materialized views computing `open`/`close` via `first(price, id)` / `last(price, id)` (ordered by insertion/id order, not actual time), two overlapping seeding runs at different price levels produced a systematic open/close offset in every bucket — visually, a "wall" of near-identical, same-colored candles instead of natural price action.
+- **Fixed**: `rotate-trades.ts` now deletes any existing rows in the exact seeding window (for its markets) before reinserting, making it idempotent/safe to re-run. `apps/db/src/seed-db.ts`'s 4 kline views (`klines_3s/1m/1h/1w`) now order `first`/`last` by `time` instead of `id` (correct regardless of insertion order), and use `DROP MATERIALIZED VIEW IF EXISTS` + `CREATE` (not `IF NOT EXISTS`) so re-running `seed:db` actually replaces already-created views, followed by a `REFRESH`.
+- To fix already-corrupted chart data (or apply this fix to an existing DB), run in order: `cd apps/db && npm run seed:db && npm run seed:trades`.
 
 ## Dashboard Routes
 
@@ -171,3 +181,4 @@ There is **no** `/dashboard` route. The old `/dashboard/[...slug]` was removed; 
 - `API_URL` — Base URL for the REST API used by the MM (default: `http://localhost:8000`)
 - `PORT` — API server port (default: `8000`)
 - `ADMIN_KEY` — expected value of the `x-admin-key` header for `POST /api/v1/admin/reset`. **Currently unset in `apps/api/.env`**, which disables the auth check entirely (see API Rate Limiting section above).
+- `JWT_SECRET` — signs/verifies user auth JWTs (`apps/api/src/middleware/auth.ts`, `apps/api/src/routes/auth.ts`) and the MM's self-signed service token (`apps/mm/src/index.ts`). **Currently unset in both `apps/api/.env` and `apps/mm/.env`**, so both fall back to the same hardcoded dev default — set it explicitly (same value for both) before going to real prod.

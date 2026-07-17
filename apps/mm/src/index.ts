@@ -1,10 +1,18 @@
 import "dotenv/config";
 import axios from "axios";
+import jwt from "jsonwebtoken";
 import { createClient } from "redis";
 import prisma from "@repo/database";
 
 const BASE_URL = process.env.API_URL ?? "http://localhost:8000";
 const USER_ID = "3";
+
+// /api/v1/order now requires a Bearer JWT (requireAuth middleware) and derives
+// userId from it rather than trusting the request body, so the MM — a backend
+// service with no real login — signs its own token for its fixed USER_ID.
+// JWT_SECRET must match the API's (both default to the same dev value if unset).
+const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_in_production";
+const authToken = jwt.sign({ userId: USER_ID }, JWT_SECRET, { expiresIn: "365d" });
 
 const redis = createClient({ url: process.env.REDIS_URL });
 
@@ -78,13 +86,17 @@ async function placeOrder(
   side: "buy" | "sell",
 ) {
   await axios
-    .post(`${BASE_URL}/api/v1/order`, {
-      market,
-      price: price.toFixed(1).toString(),
-      quantity: quantity.toFixed(2).toString(),
-      side,
-      userId: USER_ID,
-    })
+    .post(
+      `${BASE_URL}/api/v1/order`,
+      {
+        market,
+        price: price.toFixed(1).toString(),
+        quantity: quantity.toFixed(2).toString(),
+        side,
+        userId: USER_ID,
+      },
+      { headers: { Authorization: `Bearer ${authToken}` } },
+    )
     .catch((err: any) => {
       console.log(
         `order failed for ${market}`,

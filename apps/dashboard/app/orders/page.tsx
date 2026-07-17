@@ -64,14 +64,20 @@ export default function OpenOrdersTable() {
 
     useEffect(() => {
         if (!checkedAuth || !userId) return;
-        axios.get<OpenOrder[]>(`${API_URL}/api/v1/order/open?userId=${userId}&market=TATA_INR`).then(res => {
+        const token = localStorage.getItem("token");
+        axios.get<OpenOrder[]>(`${API_URL}/api/v1/order/open?userId=${userId}&market=TATA_INR`, {
+            headers: { Authorization: `Bearer ${token}` },
+        }).then(res => {
             setOpenOrders(res.data)
         })
     }, [userId])
 
     useEffect(() => {
         if (!checkedAuth || !userId) return;
-        axios.get<{ orders: ExecutedOrder[] }>(`${API_URL}/api/v1/order/executed_orders?userId=${userId}`).then(res => {
+        const token = localStorage.getItem("token");
+        axios.get<{ orders: ExecutedOrder[] }>(`${API_URL}/api/v1/order/executed_orders?userId=${userId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+        }).then(res => {
             setExecutedOrders(res.data.orders)
         })
     }, [checkedAuth, userId])

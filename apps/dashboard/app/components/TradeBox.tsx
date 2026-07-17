@@ -40,15 +40,21 @@ export function TradingOrderForm({ market = "TATA_INR" }: { market?: string }) {
     }, []);
 
     useEffect(() => {
-        if (!userId) return;
-        axios.get<AccountBalances>(`${API_URL}/api/v1/balance?userId=${userId}`).then(res => setBalance(res.data));
+        if (!userId || !isAuthenticated) {
+            setBalance(null);
+            return;
+        }
+        const token = localStorage.getItem("token");
+        axios.get<AccountBalances>(`${API_URL}/api/v1/balance?userId=${userId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+        }).then(res => setBalance(res.data));
         SignalingManager.getInstance().sendMessage({ method: "SUBSCRIBE", params: [`balance@${userId}`] });
         SignalingManager.getInstance().registerCallback("balance", (updated: AccountBalances) => setBalance(updated), `BALANCE-${userId}`);
         return () => {
             SignalingManager.getInstance().deRegisterCallback("balance", `BALANCE-${userId}`);
             SignalingManager.getInstance().sendMessage({ method: "UNSUBSCRIBE", params: [`balance@${userId}`] });
         };
-    }, [userId]);
+    }, [userId, isAuthenticated]);
 
     // reset "did the user manually edit the price" whenever market or order type changes,
     // so limit orders re-sync to the live price until the user types their own
@@ -120,7 +126,12 @@ export function TradingOrderForm({ market = "TATA_INR" }: { market?: string }) {
 
             {/* Balance */}
             <div className="text-xs text-muted-foreground bg-muted/50 rounded-md px-3 py-2 border border-border">
-                Available Money: <span className="font-semibold text-foreground">INR {balance?.INR ? balance.INR.available.toPrecision(9) : <Loader className="inline h-3 w-3 animate-spin" />}</span>
+                Available Money: <span className="font-semibold text-foreground">
+                    {!isAuthenticated
+                        ? "Sign in to view"
+                        : `INR ${balance?.INR ? balance.INR.available.toPrecision(9) : ""}`}
+                    {isAuthenticated && !balance?.INR && <Loader className="inline h-3 w-3 animate-spin" />}
+                </span>
             </div>
 
             {/* Price + Quantity */}
@@ -171,7 +182,10 @@ export function TradingOrderForm({ market = "TATA_INR" }: { market?: string }) {
                     onClick={async () => {
                         try {
                             setExecute(Execute.PENDING);
-                            const response = await axios.post(`${API_URL}/api/v1/order`, { market, price, quantity, side, userId }, { headers: { "Content-Type": "application/json" } });
+                            const token = localStorage.getItem("token");
+                            const response = await axios.post(`${API_URL}/api/v1/order`, { market, price, quantity, side }, {
+                                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                            });
                             const { executedQty, rQuantity } = response.data;
                             toast.success("Trade done successfully ✅", { description: `Executed: ${executedQty}  Remaining: ${rQuantity}`, className: "trade-success-toast" });
                         } catch (err) {

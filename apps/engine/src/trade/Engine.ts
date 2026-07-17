@@ -263,34 +263,93 @@ console.log("FsdfgsgsG",orderbook?.currentPrice)
       }
         break;
       case RESET_ENGINE: {
-        try {
-          this.reset();
-          RedisManager.getInstance().sendToApi(clientId, {
-            type: "ENGINE_RESET",
-            payload: { ok: true },
+        this.reset()
+          .then(() => {
+            RedisManager.getInstance().sendToApi(clientId, {
+              type: "ENGINE_RESET",
+              payload: { ok: true },
+            });
+          })
+          .catch((err) => {
+            console.log("Engine reset error", err);
+            RedisManager.getInstance().sendToApi(clientId, {
+              type: "ENGINE_RESET",
+              payload: { ok: false },
+            });
           });
-        } catch (err) {
-          console.log("Engine reset error", err);
-          RedisManager.getInstance().sendToApi(clientId, {
-            type: "ENGINE_RESET",
-            payload: { ok: false },
-          });
-        }
       }
         break;
     }
   }
 
-  reset() {
-    this.orderbooks = [
-      new Orderbook(`TATA`, [], [], 0, 0),
-      new Orderbook(`GOOGLE`, [], [], 0, 0),
-      new Orderbook(`META`, [], [], 0, 0),
-    ];
+  // fallback starting prices if Redis has no mm:price:<market> yet (matches apps/mm's MARKET_CONFIGS defaults)
+  private static DEFAULT_PRICES: Record<string, number> = {
+    TATA: 3500,
+    GOOGLE: 14000,
+    META: 32000,
+  };
+
+  async reset() {
+    const baseAssets = ["TATA", "GOOGLE", "META"];
+    this.orderbooks = await Promise.all(
+      baseAssets.map(async (baseAsset) => {
+        const market = `${baseAsset}_${BASE_CURRENCY}`;
+        const cached = await RedisManager.getInstance()
+          .get(`mm:price:${market}`)
+          .catch(() => null);
+        const price = cached ? parseFloat(cached) : Engine.DEFAULT_PRICES[baseAsset];
+        return new Orderbook(baseAsset, [], [], 0, price);
+      })
+    );
     this.balances = new Map();
     this.setBaseBalances();
+    this.orderbooks.forEach((orderbook) => this.warmOrderbook(orderbook));
+
+    // drop the pre-reset snapshot rather than just overwriting it, then immediately
+    // write a fresh one so a crash right after reset still recovers the reset state
+    fs.rmSync(SNAPSHOT_PATH, { force: true });
     this.saveSnapshot();
-    console.log("Engine state reset: orderbooks cleared, balances re-seeded");
+
+    console.log(
+      "Engine state reset: snapshot deleted and rewritten, orderbooks re-seeded around last known price with resting bids/asks, balances re-seeded"
+    );
+  }
+
+  // seeds a few resting bid/ask levels around the orderbook's continued price so the
+  // book isn't empty right after reset, owned by the MM's fixed user id ("3")
+  warmOrderbook(orderbook: Orderbook) {
+    const price = orderbook.currentPrice;
+    if (!price) return;
+    const spread = price * 0.0015;
+    const mmUserId = "3";
+    const now = Date.now();
+    for (let i = 1; i <= 5; i++) {
+      const qty = +(1 + Math.random()).toFixed(2);
+      orderbook.insertBid({
+        price: price - spread * i,
+        quantity: qty,
+        orderId:
+          Math.random().toString(36).substring(2, 15) +
+          Math.random().toString(36).substring(2, 15),
+        filled: 0,
+        side: "buy",
+        userId: mmUserId,
+        timeStamp: now,
+        rQuantity: qty,
+      });
+      orderbook.insertAsk({
+        price: price + spread * i,
+        quantity: qty,
+        orderId:
+          Math.random().toString(36).substring(2, 15) +
+          Math.random().toString(36).substring(2, 15),
+        filled: 0,
+        side: "sell",
+        userId: mmUserId,
+        timeStamp: now,
+        rQuantity: qty,
+      });
+    }
   }
 
   addOrderbook(orderbook: Orderbook) {

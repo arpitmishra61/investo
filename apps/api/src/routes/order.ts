@@ -1,6 +1,7 @@
 import { Router } from "express";
 import prisma from "@repo/database";
 import { RedisManager } from "../RedisManager";
+import { AuthedRequest } from "../middleware/auth";
 import {
   CREATE_ORDER,
   CANCEL_ORDER,
@@ -10,15 +11,15 @@ import {
 
 export const orderRouter = Router();
 
-// Top 10 most recent executed orders (trades) for a given user
-orderRouter.get("/executed_orders", async (req, res) => {
-  const { userId } = req.query;
+// Top 10 most recent executed orders (trades) for the authenticated user
+orderRouter.get("/executed_orders", async (req: AuthedRequest, res) => {
+  const userId = req.userId;
   if (!userId) {
-    return res.status(400).json({ error: "userId is required" });
+    return res.status(401).json({ error: "Authentication required" });
   }
   try {
     const rows = await prisma.fill.findMany({
-      where: { userId: BigInt(userId as string) },
+      where: { userId: BigInt(userId) },
       orderBy: { time: "desc" },
       take: 10,
     });
@@ -37,9 +38,12 @@ orderRouter.get("/executed_orders", async (req, res) => {
   }
 });
 
-orderRouter.post("/", async (req, res) => {
-  const { market, price, quantity, side, userId } = req.body;
-  console.log({ market, price, quantity, side, userId });
+orderRouter.post("/", async (req: AuthedRequest, res) => {
+  const { market, price, quantity, side } = req.body;
+  const userId = req.userId;
+  if (!userId) {
+    return res.status(401).json({ error: "Authentication required" });
+  }
   //TODO: can u make the type of the response object right? Right now it is a union.
   const response = await RedisManager.getInstance().sendAndAwait({
     type: CREATE_ORDER,
@@ -52,7 +56,6 @@ orderRouter.post("/", async (req, res) => {
       timeStamp : Date.now()
     },
   });
-  console.log("Fdxzgsedg", response)
   if (response.type === "ORDER_CANCELLED") {
     res.status(400).json(response.payload);
     return;
@@ -71,12 +74,14 @@ orderRouter.delete("/", async (req, res) => {
   });
   res.json(response.payload);
 });
-console.log(GET_OPEN_ORDERS);
-orderRouter.get("/open", async (req, res) => {
+orderRouter.get("/open", async (req: AuthedRequest, res) => {
+  if (!req.userId) {
+    return res.status(401).json({ error: "Authentication required" });
+  }
   const response = await RedisManager.getInstance().sendAndAwait({
     type: GET_OPEN_ORDERS,
     data: {
-      userId: req.query.userId as string,
+      userId: req.userId,
       market: req.query.market as string,
     },
   });

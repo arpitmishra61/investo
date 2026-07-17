@@ -61,4 +61,8 @@ export class RedisManager {
     public sendToApi(clientId: string, message: MessageToApi) {
         this.client.publish(clientId, JSON.stringify(message));
     }
+
+    public async get(key: string): Promise<string | null> {
+        return this.client.get(key);
+    }
 }

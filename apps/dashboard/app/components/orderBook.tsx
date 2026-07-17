@@ -123,7 +123,7 @@ export function OrderBook({ symbol = "TATA_INR" }: { symbol: string }) {
               ))}
             </div>
             <div className="flex items-center justify-center my-2 py-2 rounded-md bg-muted border border-border">
-              <strong className="text-base font-mono">₹ {currentPriceData?.currentPrice}</strong>
+              <strong className="text-base font-mono">₹ {(+currentPriceData?.currentPrice || 0).toFixed(2)}</strong>
             </div>
             <div className="max-h-48 overflow-y-auto rounded-md bg-emerald-500/8 glass-scroll">
               {depth.loading ? <Loader message="Fetching bids.." /> : depth.data.bids.map((bid, i) => (

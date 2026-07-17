@@ -1,22 +1,22 @@
 import { Router } from "express"
 import { RedisManager } from "../RedisManager"
 import { GET_BALANCE } from "../types"
+import { AuthedRequest } from "../middleware/auth"
 
 export const balanceRouter = Router()
 
-balanceRouter.get("/", async (req, res) => {
-    const { userId } = req.query
-    if (userId && typeof userId === 'string') {
+balanceRouter.get("/", async (req: AuthedRequest, res) => {
+    const userId = req.userId
+    if (userId) {
         const response = await RedisManager.getInstance().sendAndAwait({
             type: GET_BALANCE,
             data: {
                 userId
             }
         })
-        console.log("Rer", response)
         res.json(response.payload)
     }
     else {
-        res.status(404).json({error:true, messgage:"Invalid User Id"})
+        res.status(401).json({error:true, message:"Invalid User Id"})
     }
 })

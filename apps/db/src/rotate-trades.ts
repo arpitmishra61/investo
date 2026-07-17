@@ -69,6 +69,17 @@ async function rotate() {
     (end.getTime() - start.getTime()) / (INTERVAL_SEC * 1000),
   );
 
+  // clear any rows already in this exact window first — otherwise a re-run (retry,
+  // double cron fire, or overlap with a manual seed-trades run) leaves duplicate
+  // overlapping trades in the same buckets, which skews open/close in the kline views
+  const { count: windowCount } = await prisma.trade.deleteMany({
+    where: {
+      time: { gte: start, lt: end },
+      market: { in: markets.map((m) => m.market) },
+    },
+  });
+  if (windowCount > 0) console.log(`Cleared ${windowCount} existing rows in seed window`);
+
   for (const { market, volatility } of markets) {
     // continue from last known price so the chart doesn't reset
     const startPrice = await getLastPrice(
