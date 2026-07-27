@@ -1,6 +1,6 @@
 # Deploying Investo
 
-**Split:** `dashboard` → Vercel · everything else (api, engine, ws, mm, db, Redis, TimescaleDB, cron) → one Oracle Cloud **Ampere A1** instance via Docker Compose.
+**Split:** `dashboard` → Vercel · everything else (api, engine, ws, mm, db, Redis, TimescaleDB, cron) → one Oracle Cloud **Ampere A1** instance via Docker Compose. Caddy (TLS reverse proxy) runs as its own standalone container on the same instance, outside this compose stack.
 
 ---
 
@@ -22,7 +22,7 @@
    sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 443 -j ACCEPT
    sudo netfilter-persistent save
    ```
-   Only 80/443 need to be public — 8000/5001 are reached through Caddy, and Redis/Postgres stay on the internal network.
+   Only 80/443 need to be public — 8000/5001 are reached through the standalone Caddy container, and Redis/Postgres stay on the internal network.
 
 ---
 
@@ -32,10 +32,11 @@
 git clone <your-repo> investo && cd investo
 cp .env.example .env
 # edit .env: set a strong POSTGRES_PASSWORD (and the same in DATABASE_URL)
-# edit Caddyfile: replace api.example.com / ws.example.com with your subdomains
 ```
 
 Point DNS **A records** for `api.<domain>` and `ws.<domain>` at the instance's public IP.
+
+The standalone Caddy container (managed separately from this compose stack) should reverse-proxy `api.<domain>` → `localhost:8000` and `ws.<domain>` → `localhost:5001` on the instance.
 
 ---
 
@@ -67,7 +68,7 @@ docker compose ps
 docker compose logs -f engine api ws
 ```
 
-Verify TLS is live: `curl https://api.<domain>/` should respond (Caddy issues certs on first request — give it a few seconds).
+Verify TLS is live: `curl https://api.<domain>/` should respond (the standalone Caddy container issues certs on first request — give it a few seconds).
 
 ---
 

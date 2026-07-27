@@ -14,10 +14,11 @@ import { requireAuth } from "./middleware/auth";
 const app = express();
 const PORT = process.env.PORT || 8000;
 
-// Prod traffic passes through exactly one reverse proxy (Caddy, see Caddyfile) before
-// reaching here, so trust its X-Forwarded-For for req.ip — otherwise every real visitor
-// behind Caddy shares one rate-limit bucket (Caddy's own container IP) instead of being
-// limited per-visitor. Harmless in local dev: with no proxy in front, there's no
+// Prod traffic passes through exactly one reverse proxy (Caddy, run as its own
+// standalone container outside this repo's docker-compose) before reaching here, so
+// trust its X-Forwarded-For for req.ip — otherwise every real visitor behind Caddy
+// shares one rate-limit bucket (Caddy's own container IP) instead of being limited
+// per-visitor. Harmless in local dev: with no proxy in front, there's no
 // X-Forwarded-For header to read, so req.ip just falls back to the raw socket address.
 app.set("trust proxy", 1);
 

@@ -1,6 +1,6 @@
 # Investo backend stack for the Oracle Cloud (Ampere A1) instance.
 # Dashboard is NOT here — it deploys to Vercel and points at this box's
-# public https/wss endpoints (see Caddyfile).
+# public https/wss endpoints (Caddy runs as a separate container, outside this compose file).
 #
 # Database is Neon (managed Postgres/TimescaleDB) — no local DB container.
 # Only Redis is self-hosted here (engine polls it in a tight loop so it
@@ -116,26 +116,6 @@ services:
     cpus: 0.10
     mem_limit: 64m
 
-  # ---- TLS reverse proxy ----
-  caddy:
-    image: caddy:2-alpine
-    container_name: investo-caddy
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data
-      - caddy-config:/config
-    depends_on:
-      - api
-      - ws
-    cpus: 0.25
-    mem_limit: 128m
-
 volumes:
   redis-data:
   engine-snapshot:
-  caddy-data:
-  caddy-config:
